@@ -1,0 +1,299 @@
+/* POLARIS-AI Design System — Clean Arctic Light Theme */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+:root {
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Clean Arctic Light Palette */
+  --bg-page: #f8fafc;
+  --bg-surface: rgba(255, 255, 255, 0.92);
+  --bg-surface-solid: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-card: #ffffff;
+
+  /* Ocean & Polar Accents */
+  --polar-navy: #0f172a;
+  --polar-blue: #0284c7;
+  --polar-cyan: #0ea5e9;
+  --polar-ice: #e0f2fe;
+
+  --accent-gold: #d97706;
+  --accent-emerald: #059669;
+  --accent-crimson: #dc2626;
+  --accent-purple: #7c3aed;
+
+  --border-light: #e2e8f0;
+  --border-active: #0284c7;
+  --border-focus: rgba(2, 132, 199, 0.4);
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+
+  --shadow-soft: 0 4px 20px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --shadow-float: 0 20px 35px -10px rgba(15, 23, 42, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+}
+
+/* Glassmorphism Clean Light Panels */
+.glass-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: var(--shadow-soft);
+}
+
+.glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: var(--polar-blue);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-2px);
+}
+
+/* Badges */
+.polar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: var(--font-sans);
+}
+
+.polar-badge-cyan {
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+}
+
+.polar-badge-emerald {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.polar-badge-gold {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.polar-badge-danger {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* Typography Helpers */
+.font-mono-numbers {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+/* Interactive Buttons */
+.btn-primary {
+  background: #0284c7;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+}
+
+.btn-primary:hover {
+  background: #0369a1;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: #ffffff;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: var(--polar-blue);
+}
+
+.btn-tab {
+  background: #f1f5f9;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-tab.active {
+  background: #ffffff;
+  color: #0284c7;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Leaflet Overrides for Crisp Light Theme */
+.leaflet-container {
+  background: #e2e8f0 !important;
+  font-family: var(--font-sans);
+}
+
+.leaflet-control-zoom {
+  border: 1px solid var(--border-light) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft) !important;
+}
+
+.leaflet-control-zoom-in, .leaflet-control-zoom-out {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+}
+
+.leaflet-control-zoom-in:hover, .leaflet-control-zoom-out:hover {
+  background: #f8fafc !important;
+  color: var(--polar-blue) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  border: 1px solid var(--border-light);
+  border-radius: 10px !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-card) !important;
+  padding: 4px;
+}
+
+.leaflet-popup-tip {
+  background: #ffffff !important;
+}
+
+/* Range Sliders */
+input[type="range"].polar-slider {
+  -webkit-appearance: none;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"].polar-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #0284c7;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+input[type="range"].polar-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+/* Pulsing radar rings */
+@keyframes radar-pulse-light {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.radar-ring {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #dc2626;
+  animation: radar-pulse-light 2s infinite ease-out;
+  pointer-events: none;
+}
