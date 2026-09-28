@@ -197,8 +197,8 @@ class SeaIcePredictor:
         # Direct PyTorch neural network forward pass
         with torch.no_grad():
             preds_raw = self.model(input_tensor, future_steps=days_ahead)
-            # PyTorch tensor output directly drives the forecast array
-            preds_array = preds_raw.squeeze(0).squeeze(2).cpu().numpy() # (days_ahead, H, W)
+            # PyTorch tensor output directly drives the forecast array: (days_ahead, H, W)
+            preds_array = preds_raw[0, :, 0].cpu().numpy()
 
         # Baseline: Persistence model (freezes Day 0 state forward in time)
         day0_sic = history_seq[-1][0]

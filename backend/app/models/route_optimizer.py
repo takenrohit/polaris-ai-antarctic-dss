@@ -229,8 +229,9 @@ class PolarRouteOptimizer:
             return haversine_nm(node[0], node[1], lat2, lon2) * weights["dist"]
 
         found_path = False
-        max_iterations = 3000
+        max_iterations = 4000
         iterations = 0
+        closed_set = set()
 
         neighbor_offsets = [
             (lat_step, 0), (-lat_step, 0), (0, lon_step), (0, -lon_step),
@@ -240,6 +241,10 @@ class PolarRouteOptimizer:
         while pq and iterations < max_iterations:
             iterations += 1
             _, _, current = heapq.heappop(pq)
+
+            if current in closed_set:
+                continue
+            closed_set.add(current)
 
             if haversine_nm(current[0], current[1], goal_node[0], goal_node[1]) < (lat_step * 60.0):
                 came_from[goal_node] = current
@@ -252,6 +257,9 @@ class PolarRouteOptimizer:
                 nbr_lat = round(current[0] + d_lat, 2)
                 nbr_lon = round(current[1] + d_lon, 2)
                 nbr = (nbr_lat, nbr_lon)
+
+                if nbr in closed_set:
+                    continue
 
                 if not (min_lat <= nbr_lat <= max_lat and min_lon <= nbr_lon <= max_lon):
                     continue
@@ -292,7 +300,9 @@ class PolarRouteOptimizer:
         path = []
         if found_path and goal_node in came_from:
             curr = goal_node
-            while curr in came_from:
+            visited_nodes = set()
+            while curr != start_node and curr in came_from and curr not in visited_nodes:
+                visited_nodes.add(curr)
                 path.append(curr)
                 curr = came_from[curr]
             path.append(start_node)

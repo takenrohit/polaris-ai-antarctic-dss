@@ -53,5 +53,6 @@ def root():
     }
 
 @app.get("/health")
+@app.get(f"{settings.API_V1_PREFIX}/health")
 def health_check():
     return {"status": "healthy", "engine": "PyTorch + FastAPI Polar DSS"}
