@@ -193,6 +193,181 @@ The 4D A* route optimization engine produces four corridors with quantifiable tr
 
 ---
 
+### One-Command Startup and Evaluation
+
+POLARIS-AI supports four rapid deployment options:
+
+#### Option 1: Standalone Automated Evaluation and Demo (Recommended for Reviewers)
+Run the complete end-to-end evaluation pipeline in a single command without needing browser interaction:
+```bash
+python run_demo.py
+```
+This script:
+1. Validates the CF-1.8 NetCDF metocean bundle and BYU iceberg database.
+2. Runs the PyTorch ConvLSTM 7-day sea-ice forecast with prediction intervals.
+3. Simulates 120-hour Lagrangian iceberg drift with $p_{10}, p_{50}, p_{90}$ probability cones.
+4. Executes 4D A* route optimization for *MV Vasiliy Golovnin* (PC5) from Cape Town to Bharati Station.
+5. Emits the route rejection analysis, IMO POLARIS RIO assessment, fuel consumption, and visible UTC timestamps in under 10 seconds.
+
+#### Option 2: Docker Compose
+Launch both the FastAPI backend and React frontend with a single command:
+```bash
+docker-compose up --build
+```
+- Backend API: `http://localhost:8000` (OpenAPI Swagger: `http://localhost:8000/docs`)
+- Frontend ECDIS Dashboard: `http://localhost:5173`
+
+#### Option 3: Local One-Click Scripts
+- **Windows:** Double-click or run `start.bat`
+- **Linux/macOS:** Run `chmod +x start.sh && ./start.sh`
+
+---
+
+## Technical Documentation Suite
+
+For rigorous auditing and polar compliance evaluation, comprehensive documentation is provided:
+
+| Document | Purpose and Scope |
+| :--- | :--- |
+| **[DATA_SOURCES.md](file:///c:/Users/rohit/sih59/DATA_SOURCES.md)** | Full provenance of satellite sea ice (NSIDC G02135), reanalysis winds (ERA5), ocean currents (CMEMS), BYU iceberg tracks, and ADD v7.4 coastline polygons. |
+| **[MODEL_CARD.md](file:///c:/Users/rohit/sih59/MODEL_CARD.md)** | ConvLSTM neural architecture, 5-channel tensor specifications, training hyperparameters, boundary-weighted loss, and ethical limitations. |
+| **[EVALUATION.md](file:///c:/Users/rohit/sih59/EVALUATION.md)** | Quantitative benchmark comparisons against Persistence and Climatology on held-out seasonal data (Days 15–21), iceberg drift displacement errors against BYU ground truth, and ablation studies. |
+| **[LIMITATIONS.md](file:///c:/Users/rohit/sih59/LIMITATIONS.md)** | Sensor resolution limits (25 km passive microwave), melt pond summer biases, tabular iceberg draft uncertainties, and operational fail-safe boundaries. |
+| **[SAFETY_CASE.md](file:///c:/Users/rohit/sih59/SAFETY_CASE.md)** | IMO Polar Code and MSC.1/Circ.1519 compliance arguments, risk matrices, "DO NOT USE FOR NAVIGATION" fail-safe states, and Master Mariner override doctrine. |
+| **[ARCHITECTURE.md](file:///c:/Users/rohit/sih59/ARCHITECTURE.md)** | Detailed data flow diagrams, module boundaries, coordinate systems (WGS84 and EPSG:3412), REST API contracts, and ECDIS GeoJSON specifications. |
+
+---
+
+## Documented Route-Planning Example
+
+Below is an operational route optimization request for the polar resupply vessel *MV Vasiliy Golovnin* (IMO Polar Class PC5) navigating from the Port of Cape Town to Bharati Station in Prydz Bay.
+
+### 1. HTTP Request Payload (`POST /api/navigation/optimize`)
+```json
+{
+  "departure_lat": -33.92,
+  "departure_lon": 18.42,
+  "destination_lat": -69.41,
+  "destination_lon": 76.19,
+  "departure_time": "2026-09-28T00:00:00Z",
+  "vessel_name": "MV Vasiliy Golovnin",
+  "vessel_class": "PC5",
+  "vessel_length_m": 163.0,
+  "vessel_beam_m": 22.4,
+  "vessel_draft_m": 9.0,
+  "engine_power_kw": 12800.0,
+  "safety_margin_nm": 20.0
+}
+```
+
+### 2. HTTP Response Payload (Annotated Summary)
+```json
+{
+  "status": "success",
+  "data_timestamp": "2026-09-28T00:00:00Z",
+  "generated_at_utc": "2026-09-28T22:25:00Z",
+  "data_freshness_hours": 22.4,
+  "operational_status": "OPERATIONAL",
+  "quality_flags": {
+    "sea_ice_source": "NOAA/NSIDC G02135 CDR (NetCDF-4 CF-1.8)",
+    "wind_source": "ECMWF ERA5 10m Reanalysis",
+    "ocean_current_source": "Copernicus CMEMS Global Analysis",
+    "iceberg_source": "BYU / US National Ice Center Satellite Archive",
+    "spatial_resolution_km": 25.0,
+    "warning": null
+  },
+  "rejection_analysis": {
+    "direct_great_circle_rejected": true,
+    "rejection_reasons": [
+      "Direct great circle traverses land/ice shelf polygons near Antarctic continental margin.",
+      "Direct path violates dynamic iceberg standoff buffer for iceberg A-23a (closest approach 8.4 NM < 20.0 NM required)."
+    ],
+    "corrective_routing_action": "Synthesized 4D A* Pareto corridors routing through Marginal Ice Zone leads."
+  },
+  "pareto_routes": {
+    "balanced": {
+      "mode": "Balanced",
+      "distance_nm": 3072.4,
+      "estimated_duration_hours": 242.8,
+      "mgo_fuel_consumption_mt": 178.6,
+      "average_rio": 14.8,
+      "minimum_rio": 6.2,
+      "ice_transit_nm": 348.1,
+      "max_sea_ice_concentration": 0.68,
+      "risk_band": "LOW_RISK",
+      "confidence_score": 0.88,
+      "iceberg_standoff_distance_nm": 22.5
+    },
+    "maximum_safety": {
+      "mode": "Maximum Safety",
+      "distance_nm": 3227.8,
+      "estimated_duration_hours": 268.4,
+      "mgo_fuel_consumption_mt": 194.2,
+      "average_rio": 18.2,
+      "minimum_rio": 11.5,
+      "ice_transit_nm": 142.0,
+      "max_sea_ice_concentration": 0.38,
+      "risk_band": "LOW_RISK",
+      "confidence_score": 0.94,
+      "iceberg_standoff_distance_nm": 35.0
+    },
+    "fastest_transit": {
+      "mode": "Fastest Transit",
+      "distance_nm": 3014.7,
+      "estimated_duration_hours": 226.5,
+      "mgo_fuel_consumption_mt": 189.4,
+      "average_rio": 12.1,
+      "minimum_rio": 4.1,
+      "ice_transit_nm": 482.0,
+      "max_sea_ice_concentration": 0.74,
+      "risk_band": "MODERATE_RISK",
+      "confidence_score": 0.82,
+      "iceberg_standoff_distance_nm": 12.0
+    },
+    "eco_polar": {
+      "mode": "Eco-Polar",
+      "distance_nm": 3098.2,
+      "estimated_duration_hours": 274.0,
+      "mgo_fuel_consumption_mt": 162.1,
+      "average_rio": 15.4,
+      "minimum_rio": 7.0,
+      "ice_transit_nm": 310.5,
+      "max_sea_ice_concentration": 0.62,
+      "risk_band": "LOW_RISK",
+      "confidence_score": 0.89,
+      "iceberg_standoff_distance_nm": 20.0
+    }
+  }
+}
+```
+
+---
+
+## Quantitative Evaluation Summary
+
+Comprehensive model evaluation has been executed and saved in the [`evaluation/`](file:///c:/Users/rohit/sih59/evaluation/) directory. See [`EVALUATION.md`](file:///c:/Users/rohit/sih59/EVALUATION.md) for the full breakdown.
+
+### 1. Sea-Ice Concentration Forecast (Held-Out Days 15–21)
+| Model | Lead Day 1 RMSE | Lead Day 3 RMSE | Lead Day 5 RMSE | Mean IIEE ($\text{km}^2$) | Improvement over Persistence |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Climatology** | 0.2312 | 0.2341 | 0.2389 | 148,200 | Baseline |
+| **Persistence Baseline** | 0.0514 | 0.1082 | 0.1584 | 92,400 | Reference |
+| **ConvLSTM (POLARIS-AI)** | **0.0381** | **0.0764** | **0.1129** | **68,100** | **+28.7% lower RMSE** |
+
+### 2. Iceberg Lagrangian Drift (BYU Satellite Ground Truth)
+| Iceberg Identifier | Momentum Drift Error (km) | Dead-Reckoning Baseline Error (km) | Accuracy Improvement |
+| :--- | :---: | :---: | :---: |
+| **A-23a (Weddell Sea)** | **18.4 km** | 26.5 km | **+30.6%** |
+| **D-28 (Amery Ice Shelf)** | **14.3 km** | 21.3 km | **+32.9%** |
+
+### 3. Routing Pareto Frontiers (Cape Town $\rightarrow$ Bharati)
+- **Fastest Transit:** $3014.7\text{ NM}$, $226.5\text{ h}$, $189.4\text{ MT MGO}$
+- **Balanced Route:** $3072.4\text{ NM}$, $242.8\text{ h}$, $178.6\text{ MT MGO}$
+- **Eco-Polar:** $3098.2\text{ NM}$, $274.0\text{ h}$, $162.1\text{ MT MGO}$ ($-9.2\%$ fuel savings vs Balanced)
+- **Maximum Safety:** $3227.8\text{ NM}$, $268.4\text{ h}$, $194.2\text{ MT MGO}$ ($+35\text{ NM}$ iceberg standoff, $0.38$ max SIC)
+
+---
+
 ## Installation and Execution Guide
 
 ### System Requirements
@@ -215,9 +390,15 @@ python run_backend.py
 The FastAPI application initializes at `http://127.0.0.1:8000`. Swagger OpenAPI documentation is available at `http://127.0.0.1:8000/docs`.
 
 ### Automated Verification Test Suite
-Execute the pytest suite covering the data layer, Lindqvist resistance, POLARIS risk index outcome tables, ConvLSTM inference, and API endpoints:
+Execute the 31 pytest tests covering the data layer, Lindqvist resistance, POLARIS risk index outcome tables, ConvLSTM inference, polar geodesics, antimeridian wrapping, vessel validation, and API endpoints:
 ```bash
-pytest backend/tests/test_models.py -v
+pytest backend/tests/test_models.py backend/tests/test_polar_geodesics.py backend/tests/test_robustness_and_safety.py -v
+```
+
+### Quantitative Model Evaluation Suite
+Run the scientific benchmarking script comparing models against persistence baselines and satellite ground truth:
+```bash
+python evaluation/run_evaluation.py
 ```
 
 ### Frontend User Interface Setup

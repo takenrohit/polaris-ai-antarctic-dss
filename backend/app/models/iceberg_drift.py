@@ -59,9 +59,12 @@ class IcebergDriftModel:
         """
         lat0 = iceberg["lat"]
         lon0 = iceberg["lon"]
-        length_m = iceberg.get("length_km", 20.0) * 1000.0
-        width_m = iceberg.get("width_km", 10.0) * 1000.0
-        thickness_m = iceberg.get("thickness_m", 250.0)
+        length_km = max(1.0, float(iceberg.get("length_km", 20.0) or 20.0))
+        width_km = max(0.5, float(iceberg.get("width_km", 10.0) or 10.0))
+        thickness_m = max(50.0, float(iceberg.get("thickness_m", 250.0) or 250.0))
+
+        length_m = length_km * 1000.0
+        width_m = width_km * 1000.0
 
         # Freeboard (sail) vs Keel (draft) by Archimedes principle
         draft_m = thickness_m * (self.RHO_ICE / self.RHO_WATER) # ~87.5% submerged
@@ -70,7 +73,7 @@ class IcebergDriftModel:
         # Cross-sectional areas
         A_air = length_m * sail_m
         A_water = length_m * draft_m
-        mass_kg = (length_m * width_m * thickness_m) * self.RHO_ICE
+        mass_kg = max(1e6, (length_m * width_m * thickness_m) * self.RHO_ICE)
 
         dt_seconds = time_step_hours * 3600.0
         steps = forecast_hours // time_step_hours
