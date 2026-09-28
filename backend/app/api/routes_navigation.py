@@ -87,6 +87,7 @@ def optimize_polar_route(payload: RouteOptimizationRequest):
     return result
 
 @router.post("/export-geojson")
+@router.post("/export")
 def export_route_geojson(payload: RouteOptimizationRequest):
     """Generates standard GeoJSON for OpenCPN, QGIS, or ECDIS bridge displays."""
     route_data = optimize_polar_route(payload)

@@ -9,18 +9,18 @@
 
 ## Executive Summary
 
-POLARIS-AI is an operational-grade decision support platform engineered for polar expedition logistics supporting the Indian Antarctic Program at Maitri and Bharati research stations. The platform couples spatiotemporal deep learning, hydrodynamic ice-resistance physics, dynamic Lagrangian drift modeling, and constrained graph search into an integrated bridge decision pipeline.
+POLARIS-AI is an operational decision support platform engineered for polar expedition logistics supporting the Indian Antarctic Program at Maitri and Bharati research stations. The platform couples spatiotemporal deep learning, hydrodynamic ice-resistance physics, dynamic Lagrangian drift modeling, and constrained 4D graph search into an integrated bridge decision pipeline.
 
 Key technical capabilities include:
 
-1. **CF-1.8 NetCDF-4 Data Ingestion Layer**: Natively ingests satellite sea-ice concentration (calibrated against NSIDC Climate Data Record and AMSR2 reference levels), ECMWF ERA5 10-meter atmospheric surface wind reanalysis ($u_{10}, v_{10}$), Copernicus Marine (CMEMS) surface current vectors ($u_{curr}, v_{curr}$), and Sea Surface Temperature (SST). Supports multidimensional NetCDF-4 (`netcdf4`, `xarray`) and high-resolution GeoTIFF (`rasterio`) inputs, bounded by Antarctic Digital Database (ADD) and IBCSO bathymetric continental shelf exclusion masks (`shapely`).
-2. **Spatiotemporal Sea-Ice Concentration Forecasting**: A PyTorch-based Convolutional Long Short-Term Memory (ConvLSTM) neural network with serialized trained weights (`convlstm_antarctic.pt`) generating multi-step autoregressive 1-to-7-day sea-ice concentration forecasts. Model performance is quantitatively benchmarked against a standard persistence baseline using Root Mean Square Error (RMSE) and Integrated Ice Edge Error (IIEE) on held-out observational sequences.
-3. **Hydrodynamic Iceberg Drift and Uncertainty Cones**: A two-dimensional Lagrangian momentum engine integrating quadratic atmospheric wind drag, hydrodynamic ocean skin and form drag, latitude-dependent Coriolis acceleration, and ensemble perturbations. Simulates 120-hour drift trajectories and probabilistic uncertainty envelopes ($p_{10}$, $p_{50}$, $p_{90}$) for major tracked tabular icebergs (A-23a, A-76a, D-28, B-15ab, C-39) with ingestion support for US National Ice Center (NIC) and BYU tracking feeds.
-4. **Unified 4D Spatiotemporal Polar Route Optimization**: Multi-objective A* graph search over the polar risk mesh that continuously samples the 4D forecasted ice field at vessel estimated time of arrival (ETA) and enforces time-dependent standoff buffers against dynamic iceberg drift envelopes. Incorporates:
-   - Certified IMO MSC.1/Circ.1519 POLARIS Risk Index Outcome (RIO) tables across Polar Classes (PC1 through PC7, Non-Ice Strengthened) and standard WMO ice regimes.
+1. **CF-1.8 NetCDF-4 Data Ingestion Layer**: Ingests satellite sea-ice concentration compiled from NOAA/NSIDC G02135 daily polar stereographic GeoTIFFs (reprojected from EPSG:3412 to WGS84), ECMWF ERA5 daily atmospheric 10-meter wind reanalysis ($u_{10}, v_{10}$), Copernicus Marine (CMEMS) surface current vectors ($u_{curr}, v_{curr}$), and Sea Surface Temperature (SST). Bounded by Antarctic Digital Database (ADD) continental coastline and permanent ice shelf exclusion masks (`shapely`).
+2. **Spatiotemporal Sea-Ice Concentration Forecasting**: A PyTorch-based Convolutional Long Short-Term Memory (ConvLSTM) neural network with serialized trained weights (`convlstm_antarctic.pt`) generating multi-step autoregressive 1-to-7-day sea-ice concentration forecasts. Model training is executed on the historical period (Days 1–14), and quantitative benchmarking against the persistence baseline using Root Mean Square Error (RMSE) and Integrated Ice Edge Error (IIEE) is conducted strictly on a held-out evaluation window (Days 15–21).
+3. **Hydrodynamic Iceberg Drift and Uncertainty Cones**: A two-dimensional Lagrangian momentum engine integrating quadratic atmospheric wind drag, hydrodynamic ocean skin and form drag, latitude-dependent Coriolis acceleration, and ensemble perturbations. Simulates 120-hour drift trajectories and probabilistic uncertainty envelopes ($p_{10}$, $p_{50}$, $p_{90}$) for major tracked tabular icebergs (A-23a, A-76a, D-28, B-15ab, C-39) with ingestion of real satellite scatterometer observations from the BYU / US National Ice Center (NIC) consolidated archive.
+4. **Unified 4D Spatiotemporal Polar Route Optimization**: Multi-objective 4D A* graph search over the polar risk mesh that continuously samples the ConvLSTM forecasted ice field at vessel estimated time of arrival (ETA) and enforces time-dependent standoff buffers against dynamic iceberg drift envelopes. Incorporates:
+   - IMO Circular MSC.1/Circ.1519 POLARIS Risk Index Outcome (RIO) evaluation across Polar Classes (PC1 through PC7, and Non-Ice Strengthened vessels) using multi-ice-type summation ($\sum C_i \times RIV_i + C_{ow} \times RIV_{ow}$) and official operational criteria.
    - The Lindqvist (1989) and Riska (1997) ice-resistance formulation to quantify crushing, bending, submersion, and velocity-dependent resistance components for Marine Gas Oil (MGO) fuel burn calculations.
-   - Generates four Pareto corridors: Balanced, Maximum Safety, Fastest Transit, and Eco-Polar.
-5. **ECDIS Compliance and Data Interoperability**: Exports standard GeoJSON LineString geometry and waypoint attribute tables for onboard Electronic Chart Display and Information Systems (ECDIS) and OpenCPN marine chart plotters.
+   - Generates four distinct Pareto corridors: Balanced, Maximum Safety, Fastest Transit, and Eco-Polar.
+5. **ECDIS Compliance and Data Interoperability**: Exports standard GeoJSON LineString geometry and waypoint attribute tables for onboard Electronic Chart Display and Information Systems (ECDIS) and OpenCPN marine chart plotters via `/api/navigation/export` and `/api/navigation/export-geojson`.
 6. **Bridge Telemetry Simulation Interface**: WebSocket broadcast channel providing simulated Automatic Identification System (AIS) telemetry updates and instantaneous bridge risk advisories for dashboard integration.
 
 ---
@@ -31,10 +31,10 @@ Key technical capabilities include:
 +------------------------------------------------------------------------+
 |                        DATA INGESTION LAYER                            |
 |  - CF-1.8 NetCDF-4 Metocean Store (antarctic_metocean_reference.nc)    |
-|  - Satellite Sea Ice Concentration (NSIDC CDR / AMSR2 references)      |
-|  - Reanalysis Fields (ECMWF ERA5 Winds, CMEMS Currents, SST)           |
-|  - High-Resolution Coastline and Ice-Shelf Mask (ADD / IBCSO, Shapely) |
-|  - Iceberg Surveillance Records (US National Ice Center / BYU Feeds)   |
+|  - NOAA/NSIDC G02135 Daily Satellite SIC (EPSG:3412 -> WGS84)          |
+|  - Daily Reanalysis Fields (ECMWF ERA5 Winds, CMEMS Currents, SST)     |
+|  - High-Resolution Coastline and Ice-Shelf Mask (ADD, Shapely)         |
+|  - BYU / US National Ice Center Consolidated Iceberg Database (CSVs)   |
 +-----------------------------------┬------------------------------------+
                                     │ Gridded environmental slices
 +-----------------------------------▼------------------------------------+
@@ -45,9 +45,10 @@ Key technical capabilities include:
                                     │ Dynamic spatiotemporal hazard states
 +-----------------------------------▼------------------------------------+
 |               UNIFIED 4D MULTI-OBJECTIVE ROUTE OPTIMIZER               |
-|  - Spatiotemporal queries of ConvLSTM forecast S(t) at waypoint ETA    |
+|  - 4D A* graph search over spatiotemporal maritime grid                |
+|  - Direct queries of ConvLSTM forecast S(t) at waypoint arrival ETA    |
 |  - Time-resolved geometric clearance from iceberg uncertainty cones    |
-|  - IMO MSC.1/Circ.1519 POLARIS Risk Index Outcome (RIO) validation     |
+|  - IMO MSC.1/Circ.1519 POLARIS Risk Index Outcome (RIO) evaluation     |
 |  - Lindqvist (1989) ice resistance and fuel consumption modeling       |
 |  - Computes four Pareto corridors: Balanced, Safe, Fast, Eco-Fuel      |
 |  - Dynamic bridge decision brief generation                            |
@@ -79,28 +80,31 @@ Key technical capabilities include:
 
 ### 1. IMO Polar Code / POLARIS Risk Assessment (MSC.1/Circ.1519)
 
-Vessel operability in ice regimes is determined using the Polar Operational Limit Assessment Risk Indexing System (POLARIS) pursuant to IMO Circular MSC.1/Circ.1519. The Risk Index Outcome (RIO) is computed per leg:
+Vessel operability in ice regimes is evaluated following the Polar Operational Limit Assessment Risk Indexing System (POLARIS) set forth in IMO Circular MSC.1/Circ.1519 ("Guidance on Methodologies for Assessing Operational Capabilities and Limitations in Ice"). The Risk Index Outcome (RIO) is computed across each distinct ice type present plus open water:
 
-$$RIO = \sum_{i} (C_i \times RIV_i)$$
+$$RIO = \sum_{i} (C_i \times RIV_i) + C_{ow} \times RIV_{ow}$$
 
 Where:
-- $C_i$: Sea ice concentration in tenths ($0$ to $10$) for ice type $i$, satisfying $\sum C_i \le 10$.
-- $RIV_i$: Risk Index Value corresponding to the ship's Polar Class (PC1 through PC7, or Non-Ice-Strengthened / Category B) obtained from Table 1.3 of MSC.1/Circ.1519 across WMO ice types:
+- $C_i$: Ice concentration in tenths ($0$ to $10$) for ice type $i$.
+- $C_{ow}$: Open water concentration in tenths ($10 - \sum C_i$).
+- $RIV_i$: Risk Index Value corresponding to the ship's Polar Class (PC1 through PC7, or Non-Ice-Strengthened / Open Water) obtained from Table 1.3 of MSC.1/Circ.1519 across WMO ice types:
   - Multi-Year Ice
   - Second-Year Ice
   - Thick First-Year Ice ($> 1.2\text{ m}$)
   - Medium First-Year Ice ($0.7 - 1.2\text{ m}$)
-  - Thin First-Year Ice ($0.3 - 0.7\text{ m}$)
-  - Grey-White and Grey Ice ($0.1 - 0.3\text{ m}$)
+  - Thin First-Year Ice Stage 2 ($0.5 - 0.7\text{ m}$)
+  - Thin First-Year Ice Stage 1 ($0.3 - 0.5\text{ m}$)
+  - Grey-White Ice ($0.15 - 0.3\text{ m}$)
+  - Grey Ice ($0.1 - 0.15\text{ m}$)
   - New Ice ($< 0.1\text{ m}$)
   - Open Water / Bergy Water
 
-**Operational Decision Thresholds:**
-- $RIO \ge 0$: Normal Operation. Navigation authorized without icebreaker assistance.
-- $-10 \le RIO < 0$: Operation Subject to Special Conditions. Navigation restricted; icebreaker escort or daylight-only slow speed operations required.
-- $RIO < -10$: Operation Prohibited. Ice conditions exceed vessel design parameters; transit is barred under IMO Polar Code Part I-A.
+**Official MSC.1/Circ.1519 Section 2.2 Operational Criteria:**
+- $RIO \ge 0$: **Operation Permitted**. Standard navigation permitted without icebreaker assistance.
+- $-10 \le RIO < 0$: **Subject to Special Consideration (Escort Required)**. Operation requires icebreaker escort or specific operational risk mitigation.
+- $RIO < -10$: **Subject to Special Consideration (High Risk)**. Ice regime exceeds standard design capability; operations require dedicated icebreaker support or rerouting.
 
-The decision brief dynamically evaluates all waypoints along candidate corridors and provides compliance notifications with exact negative RIO alerts.
+The route optimizer evaluates all waypoints along candidate corridors and provides compliance notifications with exact RIO values and official MSC.1/Circ.1519 status descriptions.
 
 ### 2. Lindqvist (1989) Ice Resistance and Propulsion Fuel Physics
 
@@ -157,11 +161,11 @@ Where:
 - $C = 5$: Physical channels comprising $[\text{SIC}, \text{SST}, U_{10}, V_{10}, \text{Current Speed}]$.
 - Output: Autoregressively predicted sea-ice concentration grids for lead times $t \in [1, 7]$ days.
 
-Weights were trained on seasonal sequence batches using an ice-edge boundary weighted loss function:
-
-$$\mathcal{L} = 0.6 \cdot \mathcal{L}_{MSE} + 0.4 \cdot \frac{1}{N}\sum w_{MIZ} \cdot (y_{pred} - y_{true})^2$$
-
-Where $w_{MIZ} = 2.0$ for pixels within the Marginal Ice Zone ($0.10 \le y_{true} \le 0.80$). Serialized weights are loaded into memory from `backend/app/data/weights/convlstm_antarctic.pt`.
+**Strictly Held-Out Validation Protocol:**
+- Training dataset: Days 1–14 (January 1–14, 2026).
+- Strictly held-out test dataset: Days 15–21 (January 15–21, 2026).
+- The ConvLSTM model evaluates multi-day projections against true satellite observations on the held-out window, ensuring that benchmarking against the persistence baseline is rigorous and avoids data leakage.
+- Serialized weights are loaded into memory from `backend/app/data/weights/convlstm_antarctic.pt`.
 
 ### 4. 2D Hydrodynamic Iceberg Momentum Equation
 
@@ -178,29 +182,14 @@ $$m \left(\frac{d\vec{v}}{dt} + 2\vec{\Omega}\sin\phi \times \vec{v}\right) = \v
 
 ## Pareto Routing Corridors
 
-The route optimization engine produces four corridors with quantifiable trade-offs:
+The 4D A* route optimization engine produces four corridors with quantifiable trade-offs:
 
 | Route Mode | Primary Objective | Ice Strategy | Standoff Margin | Operational Application |
 |---|---|---|---|---|
-| **Balanced** | Minimum expedition risk and fuel balance | Controlled transit through permissible pack ice ($SIC \le 0.45$) | $15\text{ NM}$ buffer | Standard NCPOR recommended corridor |
-| **Maximum Safety** | Complete ice and iceberg collision risk aversion | Skirts the Marginal Ice Zone ($SIC \le 0.15$), accepts longer distance | $30\text{ NM}$ buffer | Unescorted or non-ice-strengthened vessels |
-| **Fastest Transit** | Minimum total transit duration | Direct great-circle corridor utilizing icebreaker propulsion capacity | $8\text{ NM}$ buffer | Emergency medical evacuation or rapid crew relief |
-| **Eco-Polar** | Minimal MGO fuel consumption and emissions | Throttles engine load, navigates coastal polynyas and leads | $15\text{ NM}$ buffer | Scheduled seasonal resupply with fuel conservation priority |
-
-### Benchmark Transit Evaluation: Cape Town to Bharati Station (PC5 Vessel)
-
-```
-Corridor Comparison (Origin: -33.918°, 18.423° | Destination: -69.407°, 76.187°):
--------------------------------------------------------------------------------------
-Mode           Distance (NM)    Transit Time (Days)    MGO Fuel (MT)    Minimum POLARIS RIO
--------------------------------------------------------------------------------------
-Fastest          3015.1               9.12                232.4                +12 (Normal)
-Balanced         3023.0              10.14                203.1                +12 (Normal)
-Safest           3125.4              12.21                173.4                +12 (Normal)
-Eco-Fuel         3044.4              13.07                155.7                +12 (Normal)
--------------------------------------------------------------------------------------
-Non-Ice Class:   3023.0              14.20                218.6                 -5 (Escort Required)
-```
+| **Balanced** | Minimum expedition risk and fuel balance | Controlled transit through permissible pack ice ($SIC \le 0.45$) | $20\text{ NM}$ buffer | Standard NCPOR recommended corridor |
+| **Maximum Safety** | Complete ice and iceberg collision risk aversion | Skirts the Marginal Ice Zone, stays north in open water until longitude alignment | $35\text{ NM}$ buffer | Unescorted or non-ice-strengthened vessels |
+| **Fastest Transit** | Minimum total transit duration | Direct great-circle corridor utilizing icebreaker propulsion capacity | $10\text{ NM}$ buffer | Emergency medical evacuation or rapid crew relief |
+| **Eco-Polar** | Minimal MGO fuel consumption and emissions | Throttles engine load, navigates lower ice resistance leads | $18\text{ NM}$ buffer | Scheduled seasonal resupply with fuel conservation priority |
 
 ---
 

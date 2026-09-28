@@ -1,7 +1,7 @@
 """
-Training Script for SeaIceConvLSTM.
-Trains the spatiotemporal ConvLSTM network on Antarctic Metocean sequence data
-and saves trained model weights for production inference.
+Training Script for SeaIceConvLSTM on Real NSIDC and ERA5 Data.
+Trains on training split (Days 0-13) and evaluates on strictly held-out test split (Days 14-20).
+Saves trained PyTorch weights to backend/app/data/weights/convlstm_antarctic.pt.
 """
 import os
 import sys
@@ -9,9 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
 
-# Ensure backend root is in sys.path
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
@@ -49,7 +47,7 @@ class SeaIceConvLSTM(nn.Module):
     """
     Spatiotemporal Recurrent Neural Network for Sea Ice Concentration multi-day forecasting.
     Encodes past sequence of [SIC, SST, U10, V10, Current_Speed],
-    and autoregressively decodes future SIC grids without synthetic advection hacks.
+    and autoregressively decodes future SIC grids.
     """
     def __init__(self, in_channels: int = 5, hidden_dim: int = 24, num_layers: int = 2):
         super().__init__()
@@ -67,14 +65,10 @@ class SeaIceConvLSTM(nn.Module):
             nn.Conv2d(hidden_dim, 16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(16, 1, kernel_size=1),
-            nn.Sigmoid() # Predicts sea ice concentration [0.0, 1.0]
+            nn.Sigmoid()
         )
 
     def forward(self, x: torch.Tensor, future_steps: int = 7) -> torch.Tensor:
-        """
-        x: (B, T_in, C_in, H, W)
-        Returns: (B, T_out, 1, H, W)
-        """
         B, T_in, C, H, W = x.size()
         h = [torch.zeros(B, self.hidden_dim, H, W, device=x.device) for _ in range(self.num_layers)]
         c = [torch.zeros(B, self.hidden_dim, H, W, device=x.device) for _ in range(self.num_layers)]
@@ -88,10 +82,9 @@ class SeaIceConvLSTM(nn.Module):
 
         # Decode future predictions autoregressively
         outputs = []
-        cur_pred = x[:, -1, 0:1] # Day 0 SIC
+        cur_pred = x[:, -1, 0:1]
 
         for _ in range(future_steps):
-            # Recurrent step with context features
             context_features = torch.cat([cur_pred, x[:, -1, 1:]], dim=1)
             inp = context_features
 
@@ -99,7 +92,6 @@ class SeaIceConvLSTM(nn.Module):
                 h[layer_idx], c[layer_idx] = cell(inp, h[layer_idx], c[layer_idx])
                 inp = h[layer_idx]
 
-            # Model directly outputs predicted SIC grid
             cur_pred = self.conv_out(h[-1])
             outputs.append(cur_pred)
 
@@ -107,46 +99,49 @@ class SeaIceConvLSTM(nn.Module):
 
 
 class IceEdgeLoss(nn.Module):
-    """Combines Mean Squared Error with Ice Edge Boundary Focus (MIZ 0.15 threshold)."""
+    """Combines MSE with extra weighting on the Marginal Ice Zone boundary."""
     def __init__(self):
         super().__init__()
         self.mse = nn.MSELoss()
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         mse_loss = self.mse(pred, target)
-        # Weight errors near the marginal ice boundary (0.10 <= target <= 0.80) higher
         boundary_mask = (target >= 0.10) & (target <= 0.80)
-        boundary_weight = torch.where(boundary_mask, 2.0, 1.0)
+        boundary_weight = torch.where(boundary_mask, 2.5, 1.0)
         weighted_loss = torch.mean(boundary_weight * (pred - target) ** 2)
-        return 0.6 * mse_loss + 0.4 * weighted_loss
+        return 0.5 * mse_loss + 0.5 * weighted_loss
 
 
 def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Starting SeaIceConvLSTM training on {device}...")
+    print(f"Starting SeaIceConvLSTM training on {device} using real NSIDC/ERA5 dataset...")
 
-    # Define training grid resolution (e.g., 33 lats x 45 lons)
     lats = np.linspace(-78.0, -56.0, 33)
     lons = np.linspace(-180.0, 180.0, 45)
 
-    # Ingest 14-day temporal sequence from NetCDF store
-    full_sequence = environmental_data_provider.get_gridded_sequence(lats, lons, num_days=14)
-    # Shape: (14, 5, H, W)
-    print(f"Ingested metocean sequence of shape: {full_sequence.shape}")
+    # Ingest 21-day real temporal sequence from NetCDF store
+    full_sequence = environmental_data_provider.get_gridded_sequence(lats, lons, num_days=21)
+    print(f"Ingested sequence of shape: {full_sequence.shape} across 21 real observational days.")
 
-    # Build sliding window training pairs: past 5 days -> predict next 5 days
+    # Strict Temporal Split:
+    # Training period: Days 0 to 13 (first 14 days)
+    # Held-out validation period: Days 14 to 20 (last 7 days, strictly withheld from training)
+    train_seq = full_sequence[:14]
+    val_seq = full_sequence[14:]
+    print(f"Training sequence: {train_seq.shape} | Held-out validation sequence: {val_seq.shape}")
+
     T_in = 5
     T_out = 5
-    X_list, Y_list = [], []
+    X_train_list, Y_train_list = [], []
 
-    for start_idx in range(len(full_sequence) - T_in - T_out + 1):
-        x_seq = full_sequence[start_idx : start_idx + T_in] # (T_in, 5, H, W)
-        y_seq = full_sequence[start_idx + T_in : start_idx + T_in + T_out, 0:1] # (T_out, 1, H, W)
-        X_list.append(x_seq)
-        Y_list.append(y_seq)
+    for start_idx in range(len(train_seq) - T_in - T_out + 1):
+        x = train_seq[start_idx : start_idx + T_in]
+        y = train_seq[start_idx + T_in : start_idx + T_in + T_out, 0:1]
+        X_train_list.append(x)
+        Y_train_list.append(y)
 
-    X_train = torch.tensor(np.array(X_list), dtype=torch.float32, device=device)
-    Y_train = torch.tensor(np.array(Y_list), dtype=torch.float32, device=device)
+    X_train = torch.tensor(np.array(X_train_list), dtype=torch.float32, device=device)
+    Y_train = torch.tensor(np.array(Y_train_list), dtype=torch.float32, device=device)
 
     model = SeaIceConvLSTM(in_channels=5, hidden_dim=24, num_layers=2).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.003, weight_decay=1e-5)
@@ -165,12 +160,27 @@ def train():
             rmse = torch.sqrt(torch.mean((preds - Y_train) ** 2)).item()
             print(f"Epoch [{epoch:02d}/{num_epochs:02d}] - Loss: {loss.item():.5f} - Training RMSE: {rmse:.4f}")
 
+    # Evaluate on strictly held-out period (Days 14 to 20, 7 days ahead)
+    model.eval()
+    with torch.no_grad():
+        x_val = torch.tensor(np.array([train_seq[-T_in:]]), dtype=torch.float32, device=device)
+        y_val_gt = val_seq[:7, 0:1] # (7, 1, H, W)
+        val_preds = model(x_val, future_steps=7)[0].cpu().numpy()
+
+        val_rmse = float(np.sqrt(np.mean((val_preds - y_val_gt) ** 2)))
+        # Persistence on held-out period: freeze Day 13 state forward
+        persist_val = np.tile(train_seq[-1, 0:1][None, :, :, :], (7, 1, 1, 1))
+        persist_rmse = float(np.sqrt(np.mean((persist_val - y_val_gt) ** 2)))
+
+        print("--- Strictly Held-Out Validation (Days 15-21) ---")
+        print(f"Model RMSE: {val_rmse:.4f} vs Persistence RMSE: {persist_rmse:.4f}")
+
     weights_dir = BACKEND_DIR / "app" / "data" / "weights"
     weights_dir.mkdir(parents=True, exist_ok=True)
     weights_path = weights_dir / "convlstm_antarctic.pt"
 
     torch.save(model.state_dict(), str(weights_path))
-    print(f"Model successfully trained and saved to {weights_path}")
+    print(f"Model successfully saved to {weights_path}")
 
 
 if __name__ == "__main__":

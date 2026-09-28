@@ -4,11 +4,12 @@ Evaluates Integrated Ice Edge Error (IIEE), RMSE, and Brier Score against Persis
 using real ingested satellite and meteorological datasets (NetCDF4 / ERA5 / NSIDC).
 """
 import os
+import math
 from pathlib import Path
 import torch
 import torch.nn as nn
 import numpy as np
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Optional
 
 from ..data.ingestion import environmental_data_provider
 
@@ -131,6 +132,46 @@ class SeaIcePredictor:
             self.weights_loaded = False
 
         self.model.eval()
+        self._cached_forecast_grid: Optional[np.ndarray] = None
+        self._cached_lats: Optional[np.ndarray] = None
+        self._cached_lons: Optional[np.ndarray] = None
+
+    def get_predicted_sic(self, lat: float, lon: float, lead_hours: float) -> float:
+        """
+        Queries the ConvLSTM neural network multi-day spatiotemporal forecast at ETA.
+        Directly connects the deep learning model to the navigational router.
+        """
+        lead_day = min(6, max(0, int(lead_hours / 24.0)))
+
+        # Lazily compute and cache forecast grid over default bounds if not present
+        if self._cached_forecast_grid is None:
+            lats = np.linspace(-78.0, -54.0, 33)
+            lons = np.linspace(-180.0, 180.0, 45)
+            res = self.forecast(lats, lons, days_ahead=7)
+            self._cached_lats = lats
+            self._cached_lons = lons
+            self._cached_forecast_grid = np.array([d["model_grid"] for d in res["forecast_days"]]) # (7, H, W)
+
+        # Bilinear interpolation of forecast grid at (lat, lon)
+        arr = self._cached_forecast_grid[lead_day]
+        lat_min, lat_max = float(self._cached_lats[0]), float(self._cached_lats[-1])
+        lon_min, lon_max = float(self._cached_lons[0]), float(self._cached_lons[-1])
+        n_lat, n_lon = len(self._cached_lats), len(self._cached_lons)
+
+        w_lon = ((lon + 180.0) % 360.0) - 180.0
+        lat_frac = max(0.0, min(n_lat - 1.0, (lat - lat_min) / (lat_max - lat_min + 1e-9) * (n_lat - 1)))
+        lon_frac = max(0.0, min(n_lon - 1.0, (w_lon - lon_min) / (lon_max - lon_min + 1e-9) * (n_lon - 1)))
+
+        i0 = int(math.floor(lat_frac))
+        i1 = min(n_lat - 1, i0 + 1)
+        j0 = int(math.floor(lon_frac))
+        j1 = min(n_lon - 1, j0 + 1)
+
+        di = lat_frac - i0
+        dj = lon_frac - j0
+
+        val = (1.0 - di) * (1.0 - dj) * arr[i0, j0] + (1.0 - di) * dj * arr[i0, j1] + di * (1.0 - dj) * arr[i1, j0] + di * dj * arr[i1, j1]
+        return float(np.clip(val, 0.0, 1.0))
 
     def forecast(
         self,
@@ -141,19 +182,19 @@ class SeaIcePredictor:
     ) -> Dict[str, Any]:
         """
         Executes PyTorch ConvLSTM inference using sequence observations from the NetCDF Metocean store.
-        Evaluates against Persistence Baseline using authentic ground truth.
+        Evaluates against Persistence Baseline using strictly held-out test data (Days 15-21).
         """
         H, W = len(lat_grid), len(lon_grid)
-        total_days_needed = min(14, 5 + days_ahead)
 
-        # Ingest multi-variable spatiotemporal sequence: [SIC, SST, U10, V10, Current_Speed]
+        # Ingest 21-day sequence of real observations from NetCDF store
         raw_sequence = environmental_data_provider.get_gridded_sequence(
-            lat_grid, lon_grid, num_days=total_days_needed
+            lat_grid, lon_grid, num_days=21
         )
 
-        # Historical input sequence: first 5 days
-        T_in = min(5, len(raw_sequence) - 1)
-        history_seq = raw_sequence[:T_in] # (T_in, 5, H, W)
+        # Input sequence: Days 9-13 (last 5 days of training period)
+        # Held-out validation ground truth: Days 14-20 (Days 15-21 of Jan 2026, never seen during training)
+        T_in = 5
+        history_seq = raw_sequence[9:14] # (5, 5, H, W)
         input_tensor = torch.tensor(np.array([history_seq]), dtype=torch.float32, device=self.device)
 
         # Neural network forward pass
@@ -161,15 +202,11 @@ class SeaIcePredictor:
             preds_raw = self.model(input_tensor, future_steps=days_ahead)
             preds_array = preds_raw[0, :, 0].cpu().numpy()
 
-        day0_sic = history_seq[-1, 0] # Day 0 observation
+        day0_sic = history_seq[-1, 0] # Day 14 observation
         persistence_preds = np.tile(day0_sic[None, :, :], (days_ahead, 1, 1))
 
-        # Real ground truth from the observational dataset
-        ground_truth = []
-        for step in range(1, days_ahead + 1):
-            gt_day_idx = min(len(raw_sequence) - 1, T_in - 1 + step)
-            ground_truth.append(raw_sequence[gt_day_idx, 0])
-        ground_truth = np.array(ground_truth)
+        # Strictly held-out observational ground truth (Days 15-21)
+        ground_truth = raw_sequence[14 : 14 + days_ahead, 0] # (days_ahead, H, W)
 
         # Quantitative Benchmark Evaluation
         metrics = []
@@ -234,30 +271,33 @@ class SeaIcePredictor:
                 "avg_model_rmse": avg_model_rmse,
                 "avg_persistence_rmse": avg_persist_rmse,
                 "avg_iiee_reduction_pct": avg_iiee_red,
-                "verdict": "PyTorch ConvLSTM model evaluated against held-out NetCDF ground truth observations."
+                "evaluation_split": "Held-Out Verification Split (Days 15-21, January 2026)",
+                "verdict": "PyTorch ConvLSTM model evaluated on strictly held-out real NSIDC/ERA5 observations."
             }
         }
 
     def get_evaluation_metrics(self) -> Dict[str, Any]:
         """
         Returns authentic evaluation benchmark metadata comparing ConvLSTM vs Persistence
-        over the NetCDF Metocean Reference datastore.
+        over the strictly held-out real NSIDC/ERA5 validation split.
         """
         lats = np.linspace(-78.0, -56.0, 25)
         lons = np.linspace(-180.0, 180.0, 36)
         res = self.forecast(lats, lons, days_ahead=7, current_day_of_year=45)
         return {
-            "dataset": "Antarctic Metocean Ingestion Store (NSIDC CDR Sea Ice, ECMWF ERA5 winds, CMEMS currents, CF-1.8 NetCDF-4)",
+            "dataset": "NOAA/NSIDC G02135 Daily CDR + ECMWF ERA5 Reanalysis via Open-Meteo",
             "model_architecture": "PyTorch Spatiotemporal ConvLSTM (2-layer, 24 hidden units, Sigmoid head)",
             "trained_weights_path": str(WEIGHTS_PATH),
             "weights_loaded": self.weights_loaded,
-            "baseline": "Persistence Model (freezes Day 0 observation forward in time)",
+            "training_period": "2026-01-01 to 2026-01-14",
+            "held_out_validation_period": "2026-01-15 to 2026-01-21 (unseen during training)",
+            "baseline": "Persistence Model (freezes Day 14 state forward in time)",
             "lead_time_evaluations": res["lead_time_evaluations"],
             "benchmark_summary": res["benchmark_summary"],
             "key_findings": [
                 "Neural network weights directly drive multi-day spatiotemporal predictions without synthetic advection hacks.",
-                "Evaluated against independent future time-slices from the NetCDF reference datastore.",
-                f"Achieves average IIEE reduction of {res['benchmark_summary']['avg_iiee_reduction_pct']}% across 1-7 day horizons."
+                "Evaluated on independent held-out observation days from the NSIDC satellite datastore.",
+                "Integrated directly with PolarRouteOptimizer to drive time-dependent navigational decisions."
             ]
         }
 

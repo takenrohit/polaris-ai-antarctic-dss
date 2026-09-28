@@ -1,20 +1,60 @@
-"""
-Iceberg Tracking and Surveillance Service.
-Maintains active Antarctic icebergs, integrates US NIC / BYU Antarctic Iceberg Database records,
-supports automated feed ingestion (CSV / JSON), and executes physics trajectory simulations.
-"""
+import os
 import csv
 import io
+from pathlib import Path
 from typing import List, Dict, Any, Optional
+import pandas as pd
 from ..config import INITIAL_ICEBERGS
 from ..models.iceberg_drift import iceberg_drift_engine
 
+BYU_ARCHIVE_DIR = Path(__file__).resolve().parent.parent / "data" / "byu_icebergs" / "updated7_consol"
+
 class IcebergService:
     def __init__(self):
-        # Database of active tracked icebergs initialized from official NIC baseline
+        # Database of active tracked icebergs
         self.icebergs: Dict[str, Dict[str, Any]] = {
             berg["id"]: berg.copy() for berg in INITIAL_ICEBERGS
         }
+        self.load_from_byu_archive()
+
+    def load_from_byu_archive(self):
+        """Loads real satellite scatterometer observations from BYU/NIC consolidated archive."""
+        if not BYU_ARCHIVE_DIR.exists():
+            return
+
+        archive_map = {
+            "A-23a": "a23a.csv",
+            "A-76a": "a76a.csv",
+            "D-28": "d28.csv",
+            "B-15ab": "b15ab.csv",
+            "C-39": "c39.csv"
+        }
+
+        for berg_id, fname in archive_map.items():
+            csv_path = BYU_ARCHIVE_DIR / fname
+            if not csv_path.exists():
+                continue
+            try:
+                df = pd.read_csv(csv_path)
+                # Find rows with non-zero coordinates
+                non_zero = df[(df["nic_1"] != 0) | (df["ascat_1"] != 0)]
+                if len(non_zero) > 0:
+                    latest = non_zero.iloc[-1]
+                    lat = float(latest["nic_1"] if latest["nic_1"] != 0 else latest["ascat_1"])
+                    lon = float(latest["nic_2"] if latest["nic_2"] != 0 else latest["ascat_2"])
+                    sz1 = float(latest.get("size_1", 0.0))
+                    sz2 = float(latest.get("size_2", 0.0))
+
+                    if berg_id in self.icebergs:
+                        self.icebergs[berg_id]["lat"] = round(lat, 3)
+                        self.icebergs[berg_id]["lon"] = round(lon, 3)
+                        if sz1 > 0:
+                            self.icebergs[berg_id]["length_km"] = sz1
+                        if sz2 > 0:
+                            self.icebergs[berg_id]["width_km"] = sz2
+                        self.icebergs[berg_id]["surveillance_source"] = f"BYU/USNIC Archive ({fname}, Obs {int(latest['date'])})"
+            except Exception as e:
+                print(f"Error loading BYU record {fname}: {e}")
 
     def list_icebergs(self) -> List[Dict[str, Any]]:
         return list(self.icebergs.values())

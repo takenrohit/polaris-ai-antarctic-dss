@@ -7,6 +7,7 @@ Supports:
 - Local reference Metocean NetCDF datastore (NSIDC Sea Ice + ERA5 Wind/SST + CMEMS Currents)
 """
 import os
+import sys
 import math
 import numpy as np
 from pathlib import Path
@@ -223,138 +224,19 @@ class EnvironmentalDataProvider:
         self._reader = NetCDFDatasetReader(str(self.nc_path))
 
     def _ensure_dataset_exists(self):
-        """Generates the reference Antarctic NetCDF dataset if not present on disk."""
+        """Ensures the real NSIDC/ERA5 Antarctic NetCDF dataset is present on disk."""
         if self.nc_path.exists():
             return
 
-        print(f"Creating Antarctic Reference NetCDF Metocean store at {self.nc_path}...")
+        print(f"NetCDF store not found at {self.nc_path}. Generating from real NSIDC GeoTIFFs and ERA5 reanalysis...")
         self.nc_path.parent.mkdir(parents=True, exist_ok=True)
-
-        lats = np.linspace(-82.0, -50.0, 65)  # 0.5° resolution
-        lons = np.linspace(-180.0, 180.0, 121) # 3.0° resolution
-        n_times = 14                           # 14 days time horizon
-
-        H, W = len(lats), len(lons)
-        lats_2d = np.tile(lats[:, None], (1, W))
-        lons_2d = np.tile(lons[None, :], (H, 1))
-
-        # Create NetCDF4 file
-        with nc.Dataset(str(self.nc_path), "w", format="NETCDF4") as rootgrp:
-            rootgrp.title = "POLARIS-AI Antarctic Satellite & Metocean Reference Ingestion Store"
-            rootgrp.source = "NSIDC CDR Sea Ice, ECMWF ERA5 Atmospheric Reanalysis, CMEMS Surface Currents"
-            rootgrp.conventions = "CF-1.8"
-            rootgrp.spatial_bounds = "50.0S to 82.0S, 180.0W to 180.0E"
-
-            # Dimensions
-            rootgrp.createDimension("time", n_times)
-            rootgrp.createDimension("latitude", H)
-            rootgrp.createDimension("longitude", W)
-
-            # Coordinate Variables
-            var_time = rootgrp.createVariable("time", "f4", ("time",))
-            var_time.units = "days since 2026-02-01 00:00:00"
-            var_time.long_name = "time"
-            var_time[:] = np.arange(n_times, dtype=np.float32)
-
-            var_lat = rootgrp.createVariable("latitude", "f4", ("latitude",))
-            var_lat.units = "degrees_north"
-            var_lat.long_name = "latitude"
-            var_lat[:] = lats.astype(np.float32)
-
-            var_lon = rootgrp.createVariable("longitude", "f4", ("longitude",))
-            var_lon.units = "degrees_east"
-            var_lon.long_name = "longitude"
-            var_lon[:] = lons.astype(np.float32)
-
-            # Data Variables
-            var_sic = rootgrp.createVariable("sic", "f4", ("time", "latitude", "longitude"), zlib=True)
-            var_sic.units = "1"
-            var_sic.long_name = "sea_ice_area_fraction"
-            var_sic.standard_name = "sea_ice_area_fraction"
-
-            var_u10 = rootgrp.createVariable("u10", "f4", ("time", "latitude", "longitude"), zlib=True)
-            var_u10.units = "m s-1"
-            var_u10.long_name = "10m_eastward_wind"
-
-            var_v10 = rootgrp.createVariable("v10", "f4", ("time", "latitude", "longitude"), zlib=True)
-            var_v10.units = "m s-1"
-            var_v10.long_name = "10m_northward_wind"
-
-            var_u_curr = rootgrp.createVariable("u_curr", "f4", ("time", "latitude", "longitude"), zlib=True)
-            var_u_curr.units = "m s-1"
-            var_u_curr.long_name = "surface_eastward_sea_water_velocity"
-
-            var_v_curr = rootgrp.createVariable("v_curr", "f4", ("time", "latitude", "longitude"), zlib=True)
-            var_v_curr.units = "m s-1"
-            var_v_curr.long_name = "surface_northward_sea_water_velocity"
-
-            var_sst = rootgrp.createVariable("sst", "f4", ("time", "latitude", "longitude"), zlib=True)
-            var_sst.units = "degC"
-            var_sst.long_name = "sea_surface_temperature"
-
-            # Populate with authentic Antarctic physical fields
-            # Summer/autumn ice edge profile: typically -65°S to -68°S in February/March
-            ice_edge_lat = -66.5
-            gyre_weddell = np.exp(-((lons_2d - (-45.0))**2) / (32.0**2)) * 4.2
-            gyre_ross = np.exp(-((lons_2d - 175.0)**2) / (28.0**2)) * 3.8
-            eff_edge = ice_edge_lat + gyre_weddell + gyre_ross
-
-            for t in range(n_times):
-                day_offset = float(t)
-                t_wave = math.sin(day_offset * 0.25)
-
-                # Sea Ice Concentration field with dynamic advective displacement
-                edge_t = eff_edge + t_wave * 0.8
-                ice_diff = edge_t - lats_2d
-                # Logistic sigmoid transition across Marginal Ice Zone
-                sic_field = 1.0 / (1.0 + np.exp(-0.75 * ice_diff))
-                sic_field[lats_2d > -60.0] = 0.0
-
-                # Bharati coastal polynya / lead in Prydz Bay (76.2°E, -69.4°S)
-                prydz_lead = np.exp(-((lats_2d - (-69.4))**2 + (lons_2d - 76.2)**2) / 3.5) * 0.45
-                sic_field = np.clip(sic_field - prydz_lead, 0.0, 1.0)
-
-                # Atmospheric Wind: Antarctic Circumpolar Westerlies north of -65°S, Polar Easterlies near coast
-                u10_field = np.where(
-                    lats_2d < -66.0,
-                    -5.5 + 1.5 * np.cos(np.radians(lons_2d) + day_offset * 0.2), # Coastal easterlies
-                    8.5 + 2.5 * np.sin(np.radians(lons_2d * 2.0) + day_offset * 0.3) # Roaring Forties/Furious Fifties westerlies
-                )
-                v10_field = np.where(
-                    lats_2d < -66.0,
-                    -2.0 + 1.0 * np.sin(day_offset * 0.4), # Katabatic downslope component
-                    3.5 + 1.8 * np.cos(np.radians(lons_2d) + day_offset * 0.3)
-                )
-
-                # Ocean Surface Currents: Antarctic Circumpolar Current (ACC) eastward; Coastal Current westward
-                u_curr_field = np.where(
-                    lats_2d < -66.0,
-                    -0.18 + 0.04 * np.sin(day_offset * 0.2),
-                    0.28 + 0.06 * np.cos(day_offset * 0.2)
-                )
-                v_curr_field = np.where(
-                    lats_2d < -66.0,
-                    -0.03 + 0.02 * np.cos(day_offset * 0.3),
-                    0.08 + 0.03 * np.sin(day_offset * 0.2)
-                )
-
-                # Weddell Gyre circulation vortex
-                weddell_mask = (lats_2d < -62.0) & (lons_2d > -60.0) & (lons_2d < -20.0)
-                u_curr_field = np.where(weddell_mask, 0.20, u_curr_field)
-                v_curr_field = np.where(weddell_mask, 0.24, v_curr_field)
-
-                # Sea Surface Temperature (°C)
-                sst_field = np.clip((lats_2d + 65.0) * 0.55, -1.8, 8.0)
-
-                # Write slice to NetCDF
-                var_sic[t, :, :] = sic_field.astype(np.float32)
-                var_u10[t, :, :] = u10_field.astype(np.float32)
-                var_v10[t, :, :] = v10_field.astype(np.float32)
-                var_u_curr[t, :, :] = u_curr_field.astype(np.float32)
-                var_v_curr[t, :, :] = v_curr_field.astype(np.float32)
-                var_sst[t, :, :] = sst_field.astype(np.float32)
-
-        print("NetCDF Reference Store successfully built.")
+        # Execute the real dataset generation script
+        import subprocess
+        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "build_real_antarctic_dataset.py"
+        if script_path.exists():
+            subprocess.run([sys.executable, str(script_path)], check=True)
+        else:
+            raise FileNotFoundError(f"Real dataset generator not found at {script_path}")
 
     def get_sic(self, lat: float, lon: float, day_idx: int = 0) -> float:
         """Queries sea ice concentration [0.0 - 1.0] at (lat, lon, day)."""
@@ -362,14 +244,14 @@ class EnvironmentalDataProvider:
 
     def get_wind(self, lat: float, lon: float, hour_offset: int = 0) -> Tuple[float, float]:
         """Queries 10m wind velocity (u, v) in m/s at (lat, lon, hour)."""
-        day_idx = min(13, hour_offset // 24)
+        day_idx = min(20, hour_offset // 24)
         u10 = self._reader.sample_point("u10", lat, lon, time_idx=day_idx)
         v10 = self._reader.sample_point("v10", lat, lon, time_idx=day_idx)
         return u10, v10
 
     def get_ocean_current(self, lat: float, lon: float, hour_offset: int = 0) -> Tuple[float, float]:
         """Queries surface ocean current velocity (u, v) in m/s at (lat, lon, hour)."""
-        day_idx = min(13, hour_offset // 24)
+        day_idx = min(20, hour_offset // 24)
         u_c = self._reader.sample_point("u_curr", lat, lon, time_idx=day_idx)
         v_c = self._reader.sample_point("v_curr", lat, lon, time_idx=day_idx)
         return u_c, v_c
