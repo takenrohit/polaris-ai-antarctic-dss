@@ -38,31 +38,11 @@ class IcebergDriftModel:
     def get_environmental_forcing(self, lat: float, lon: float, hour_offset: int) -> Tuple[float, float, float, float]:
         """
         Retrieves ocean current (u_curr, v_curr) and wind (u_wind, v_wind) in m/s
-        based on Antarctic circumpolar geography, prevailing westerlies, and coastal easterlies.
+        directly from the NetCDF Metocean data store (ERA5 surface wind + CMEMS ocean currents).
         """
-        time_t = hour_offset / 24.0
-        wave_t = math.sin(time_t * 0.5 + math.radians(lon))
-
-        if lat < -66.0:
-            # Coastal Easterlies / Antarctic Coastal Current (drifting westward)
-            u_curr = -0.18 + 0.05 * wave_t
-            v_curr = -0.04 + 0.03 * math.cos(time_t * 0.3)
-            u_wind = -5.0 + 2.0 * wave_t
-            v_wind = -2.5 + 1.5 * math.cos(time_t * 0.4)
-        else:
-            # ACC Region (drifting east-northeastward towards Drake Passage / Scotia Sea)
-            u_curr = 0.28 + 0.08 * wave_t
-            v_curr = 0.12 + 0.06 * math.cos(time_t * 0.5)
-            u_wind = 7.5 + 3.0 * wave_t
-            v_wind = 4.0 + 2.0 * math.sin(time_t * 0.6)
-
-        # Weddell Gyre regional vortex adjustment
-        if -60.0 <= lon <= -30.0 and -75.0 <= lat <= -60.0:
-            u_curr = 0.22 + 0.05 * wave_t
-            v_curr = 0.30 + 0.08 * math.cos(time_t * 0.5)
-            u_wind = 3.0 + 1.5 * wave_t
-            v_wind = 8.5 + 2.5 * math.sin(time_t * 0.5)
-
+        from ..data.ingestion import environmental_data_provider
+        u_curr, v_curr = environmental_data_provider.get_ocean_current(lat, lon, hour_offset)
+        u_wind, v_wind = environmental_data_provider.get_wind(lat, lon, hour_offset)
         return u_curr, v_curr, u_wind, v_wind
 
     def predict_trajectory(
@@ -229,6 +209,54 @@ class IcebergDriftModel:
                 "model_confidence": "HIGH (2D hydrodynamic form drag, windage, and Coriolis parameter f with ensemble eddy variance)"
             }
         }
+
+    def evaluate_envelope_hazard(
+        self,
+        lat: float,
+        lon: float,
+        time_hours: float,
+        iceberg_trajectories: List[Dict[str, Any]],
+        standoff_margin_nm: float = 12.0
+    ) -> Tuple[float, Optional[str], float]:
+        """
+        Evaluates dynamic 4D proximity to iceberg drift uncertainty envelopes at vessel arrival time.
+        Returns: (hazard_penalty, nearest_iceberg_id, min_distance_nm)
+        """
+        hazard_penalty = 0.0
+        nearest_id = None
+        min_dist_nm = 999.0
+
+        for traj_meta in iceberg_trajectories:
+            berg_id = traj_meta["iceberg_id"]
+            points = traj_meta.get("trajectory", [])
+            if not points:
+                continue
+
+            # Find closest trajectory point in time
+            closest_pt = min(points, key=lambda p: abs(p["hour"] - time_hours))
+            b_lat, b_lon = closest_pt["lat"], closest_pt["lon"]
+            cone_radius_nm = closest_pt.get("uncertainty_radius_km", 5.0) / 1.852 # Convert km to NM
+
+            # Haversine distance
+            phi1, phi2 = math.radians(lat), math.radians(b_lat)
+            dphi = math.radians(b_lat - lat)
+            dlambda = math.radians(b_lon - lon)
+            a = math.sin(dphi / 2.0)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0)**2
+            c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+            dist_nm = 3440.065 * c
+
+            if dist_nm < min_dist_nm:
+                min_dist_nm = dist_nm
+                nearest_id = berg_id
+
+            # Effective dynamic danger boundary = cone radius + standoff margin
+            danger_limit = cone_radius_nm + standoff_margin_nm
+            if dist_nm < cone_radius_nm:
+                hazard_penalty += 15000.0 # Critical breach of predicted iceberg envelope
+            elif dist_nm < danger_limit:
+                hazard_penalty += (danger_limit - dist_nm) * 350.0
+
+        return hazard_penalty, nearest_id, min_dist_nm
 
 # Global singleton instance
 iceberg_drift_engine = IcebergDriftModel()

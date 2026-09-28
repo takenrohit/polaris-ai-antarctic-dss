@@ -1,11 +1,19 @@
 """
 PyTorch Spatiotemporal ConvLSTM Model & Persistence Baseline for Antarctic Sea-Ice Concentration (SIC) Forecasting.
-Evaluates Integrated Ice Edge Error (IIEE), RMSE, and Brier Score against Persistence Baseline.
+Evaluates Integrated Ice Edge Error (IIEE), RMSE, and Brier Score against Persistence Baseline
+using real ingested satellite and meteorological datasets (NetCDF4 / ERA5 / NSIDC).
 """
+import os
+from pathlib import Path
 import torch
 import torch.nn as nn
 import numpy as np
 from typing import Dict, Any, Tuple, List
+
+from ..data.ingestion import environmental_data_provider
+
+WEIGHTS_PATH = Path(__file__).resolve().parent.parent / "data" / "weights" / "convlstm_antarctic.pt"
+
 
 class ConvLSTMCell(nn.Module):
     """Convolutional LSTM Cell for spatiotemporal grid dynamics."""
@@ -23,23 +31,12 @@ class ConvLSTMCell(nn.Module):
             padding=padding,
             bias=True
         )
-        self._initialize_advection_weights()
-
-    def _initialize_advection_weights(self):
-        """Initializes convolutional filters with directional spatial difference kernels."""
-        nn.init.orthogonal_(self.conv.weight)
-        if self.conv.bias is not None:
-            # Set forget gate bias to 1.0 for stable temporal persistence
-            nn.init.constant_(self.conv.bias, 0.0)
-            with torch.no_grad():
-                # self.conv.bias is shaped (4 * hidden_channels,)
-                self.conv.bias[self.hidden_channels:2 * self.hidden_channels].fill_(1.0)
 
     def forward(self, x: torch.Tensor, h_prev: torch.Tensor, c_prev: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         combined = torch.cat([x, h_prev], dim=1)
         gates = self.conv(combined)
         cc_i, cc_f, cc_o, cc_g = torch.split(gates, self.hidden_channels, dim=1)
-        
+
         i = torch.sigmoid(cc_i)
         f = torch.sigmoid(cc_f)
         o = torch.sigmoid(cc_o)
@@ -52,11 +49,11 @@ class ConvLSTMCell(nn.Module):
 
 class SeaIceConvLSTM(nn.Module):
     """
-    Spatiotemporal Recurrent Neural Network for Sea Ice Concentration (SIC) multi-day forecasting.
-    Input shape: (B, T_in, C_in, H, W)
-    Output shape: (B, T_out, 1, H, W) where values are normalized concentration [0.0, 1.0].
+    Spatiotemporal Recurrent Neural Network for Sea Ice Concentration multi-day forecasting.
+    Encodes past sequence of [SIC, SST, U10, V10, Current_Speed],
+    and autoregressively decodes future SIC grids driven by neural network parameter weights.
     """
-    def __init__(self, in_channels: int = 5, hidden_dim: int = 32, num_layers: int = 2):
+    def __init__(self, in_channels: int = 5, hidden_dim: int = 24, num_layers: int = 2):
         super(SeaIceConvLSTM, self).__init__()
         self.in_channels = in_channels
         self.hidden_dim = hidden_dim
@@ -68,27 +65,18 @@ class SeaIceConvLSTM(nn.Module):
             cell_list.append(ConvLSTMCell(cur_in_channels, hidden_dim, kernel_size=3))
         self.cell_list = nn.ModuleList(cell_list)
 
-        # Output projection head: predicts residual differential change (delta SIC) from spatiotemporal hidden state
         self.conv_out = nn.Sequential(
             nn.Conv2d(hidden_dim, 16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(16, 1, kernel_size=1),
-            nn.Tanh()
+            nn.Sigmoid() # Direct physical bounds [0.0, 1.0] for sea ice concentration
         )
-        self._init_output_head()
-
-    def _init_output_head(self):
-        for m in self.conv_out.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.xavier_normal_(m.weight, gain=0.02)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0.0)
 
     def forward(self, x: torch.Tensor, future_steps: int = 7) -> torch.Tensor:
         """
         Runs recurrent ConvLSTM propagation over past sequence, then autoregressively
-        projects future sea ice concentration grids via learned advection-diffusion dynamics.
-        x: (B, T_in, C, H, W)
+        projects future sea ice concentration grids.
+        x: (B, T_in, C_in, H, W)
         Returns: (B, T_out, 1, H, W)
         """
         B, T_in, C, H, W = x.size()
@@ -97,72 +85,52 @@ class SeaIceConvLSTM(nn.Module):
 
         # Encode historical input sequence
         for t in range(T_in):
-            inp = x[:, t, :, :, :]
+            inp = x[:, t]
             for layer_idx, cell in enumerate(self.cell_list):
                 h[layer_idx], c[layer_idx] = cell(inp, h[layer_idx], c[layer_idx])
                 inp = h[layer_idx]
 
-        # Decode future steps autoregressively
+        # Autoregressively decode future predictions
         outputs = []
-        cur_pred = x[:, -1, 0:1, :, :]  # Day 0 baseline state
+        cur_pred = x[:, -1, 0:1] # Day 0 state
 
-        for step in range(1, future_steps + 1):
-            dummy_features = torch.cat([cur_pred, x[:, -1, 1:, :, :]], dim=1)
-            inp = dummy_features
+        for _ in range(future_steps):
+            context_features = torch.cat([cur_pred, x[:, -1, 1:]], dim=1)
+            inp = context_features
 
             for layer_idx, cell in enumerate(self.cell_list):
                 h[layer_idx], c[layer_idx] = cell(inp, h[layer_idx], c[layer_idx])
                 inp = h[layer_idx]
 
-            # Spatiotemporal transport modeled by wind/ocean forcing
-            shift_x = int(round(np.sin(step * 0.3) * 1.0))
-            advected = torch.roll(cur_pred, shifts=shift_x, dims=3)
-
-            # Neural network predicts local melt/freeze and boundary convergence
-            delta = self.conv_out(h[-1]) * 0.02
-            cur_pred = torch.clamp(0.96 * advected + delta, 0.0, 1.0)
+            # Model directly outputs next predicted state
+            cur_pred = self.conv_out(h[-1])
             outputs.append(cur_pred)
 
-        # Output shape: (B, future_steps, 1, H, W)
         return torch.stack(outputs, dim=1)
 
 
 class SeaIcePredictor:
     """
-    High-level Inference & Benchmarking Engine.
-    Executes PyTorch ConvLSTM Neural Forecast and evaluates against Persistence Baseline.
+    Inference & Benchmarking Engine for Antarctic Sea Ice Concentration.
+    Queries the NetCDF observational datastore, runs the trained PyTorch ConvLSTM model,
+    and rigorously evaluates performance against the Persistence Baseline on held-out test data.
     """
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = SeaIceConvLSTM(in_channels=5, hidden_dim=24, num_layers=2).to(self.device)
+
+        if os.path.exists(WEIGHTS_PATH):
+            try:
+                state_dict = torch.load(str(WEIGHTS_PATH), map_location=self.device, weights_only=True)
+                self.model.load_state_dict(state_dict)
+                self.weights_loaded = True
+            except Exception as e:
+                print(f"Warning: Could not load trained weights: {e}")
+                self.weights_loaded = False
+        else:
+            self.weights_loaded = False
+
         self.model.eval()
-
-    def generate_synthetic_antarctic_base(self, lat_grid: np.ndarray, lon_grid: np.ndarray, day_of_year: int = 45) -> np.ndarray:
-        """
-        Synthesizes Antarctic baseline sea ice extent based on latitude,
-        gyre locations (Weddell, Ross, Prydz Bay), and seasonal cycles.
-        """
-        H, W = len(lat_grid), len(lon_grid)
-        lats_2d = np.tile(lat_grid[:, None], (1, W))
-        lons_2d = np.tile(lon_grid[None, :], (H, 1))
-
-        seasonal_phase = (day_of_year - 260) / 365.0 * 2 * np.pi
-        ice_edge_latitude = -61.0 - 9.0 * (1.0 + np.cos(seasonal_phase)) / 2.0  # -70° to -61°
-
-        gyre_weddell = np.exp(-((lons_2d - (-45))**2) / (30.0**2)) * 3.5
-        gyre_ross = np.exp(-((lons_2d - (175))**2) / (25.0**2)) * 4.0
-        prydz_bay = np.exp(-((lons_2d - 75.0)**2) / (15.0**2)) * 2.0
-
-        effective_edge = ice_edge_latitude + gyre_weddell + gyre_ross - prydz_bay
-
-        ice_diff = effective_edge - lats_2d
-        ice_concentration = 1.0 / (1.0 + np.exp(-0.6 * ice_diff))
-
-        polynya_mask = np.exp(-((lats_2d - (-69.4))**2 + (lons_2d - 76.2)**2) / 4.0) * 0.4
-        ice_concentration = np.clip(ice_concentration - polynya_mask, 0.0, 1.0)
-        ice_concentration[lats_2d > -56.0] = 0.0
-
-        return ice_concentration.astype(np.float32)
 
     def forecast(
         self,
@@ -172,54 +140,40 @@ class SeaIcePredictor:
         current_day_of_year: int = 45
     ) -> Dict[str, Any]:
         """
-        Runs PyTorch ConvLSTM inference alongside Persistence Baseline over the spatial grid.
-        The neural network tensor output directly drives the forecast fields.
+        Executes PyTorch ConvLSTM inference using sequence observations from the NetCDF Metocean store.
+        Evaluates against Persistence Baseline using authentic ground truth.
         """
         H, W = len(lat_grid), len(lon_grid)
+        total_days_needed = min(14, 5 + days_ahead)
 
-        # Build past 7-day input sequence
-        history_seq = []
-        for d in range(-6, 1):
-            day_idx = (current_day_of_year + d) % 365
-            sic = self.generate_synthetic_antarctic_base(lat_grid, lon_grid, day_idx)
+        # Ingest multi-variable spatiotemporal sequence: [SIC, SST, U10, V10, Current_Speed]
+        raw_sequence = environmental_data_provider.get_gridded_sequence(
+            lat_grid, lon_grid, num_days=total_days_needed
+        )
 
-            sst = np.clip((lat_grid[:, None] + 65.0) * 0.4, -1.8, 6.0)
-            sst = np.tile(sst, (1, W))
-            wind_u = np.sin(np.radians(lon_grid[None, :])) * 6.0 + np.random.normal(0, 0.2, (H, W))
-            wind_v = np.cos(np.radians(lon_grid[None, :])) * 4.0 + np.random.normal(0, 0.2, (H, W))
-            current_mag = np.tile(0.2 + 0.15 * np.cos(np.radians(lat_grid[:, None])), (1, W))
-
-            stacked = np.stack([sic, sst, wind_u, wind_v, current_mag], axis=0)
-            history_seq.append(stacked)
-
+        # Historical input sequence: first 5 days
+        T_in = min(5, len(raw_sequence) - 1)
+        history_seq = raw_sequence[:T_in] # (T_in, 5, H, W)
         input_tensor = torch.tensor(np.array([history_seq]), dtype=torch.float32, device=self.device)
 
-        # Direct PyTorch neural network forward pass
+        # Neural network forward pass
         with torch.no_grad():
             preds_raw = self.model(input_tensor, future_steps=days_ahead)
-            # PyTorch tensor output directly drives the forecast array: (days_ahead, H, W)
             preds_array = preds_raw[0, :, 0].cpu().numpy()
 
-        # Baseline: Persistence model (freezes Day 0 state forward in time)
-        day0_sic = history_seq[-1][0]
+        day0_sic = history_seq[-1, 0] # Day 0 observation
         persistence_preds = np.tile(day0_sic[None, :, :], (days_ahead, 1, 1))
 
-        # Independent Ground Truth Evolution (advection-diffusion equation)
+        # Real ground truth from the observational dataset
         ground_truth = []
-        curr_state = day0_sic.copy()
         for step in range(1, days_ahead + 1):
-            # Advective flux: wind pushes ice edge
-            shift_x = int(round(np.sin(step * 0.3) * 1.2))
-            shifted = np.roll(curr_state, shift_x, axis=1)
-            # Thermodynamic melting/freezing drift
-            seasonal_drift = (self.generate_synthetic_antarctic_base(lat_grid, lon_grid, (current_day_of_year + step) % 365) - day0_sic) * 0.6
-            curr_state = np.clip(0.94 * shifted + seasonal_drift, 0.0, 1.0)
-            ground_truth.append(curr_state)
+            gt_day_idx = min(len(raw_sequence) - 1, T_in - 1 + step)
+            ground_truth.append(raw_sequence[gt_day_idx, 0])
         ground_truth = np.array(ground_truth)
 
-        # Calculate Verified Benchmark Metrics
+        # Quantitative Benchmark Evaluation
         metrics = []
-        pixel_area_km2 = 25.0 * 25.0
+        pixel_area_km2 = 25.0 * 25.0 # Standard 25km polar grid cell area
 
         for t in range(days_ahead):
             gt_t = ground_truth[t]
@@ -230,7 +184,7 @@ class SeaIcePredictor:
             model_rmse = float(np.sqrt(np.mean((model_t - gt_t) ** 2)))
             persist_rmse = float(np.sqrt(np.mean((persist_t - gt_t) ** 2)))
 
-            # Integrated Ice Edge Error (IIEE) at 15% threshold
+            # Integrated Ice Edge Error (IIEE) at 15% Marginal Ice Zone threshold
             gt_binary = gt_t >= 0.15
             model_binary = model_t >= 0.15
             persist_binary = persist_t >= 0.15
@@ -244,6 +198,7 @@ class SeaIcePredictor:
             persist_iiee = float(persist_over + persist_under)
 
             improvement_pct = max(0.0, round(((persist_rmse - model_rmse) / (persist_rmse + 1e-6)) * 100.0, 1))
+            iiee_reduction = max(0.0, round(((persist_iiee - model_iiee) / (persist_iiee + 1e-6)) * 100.0, 1))
 
             metrics.append({
                 "lead_days": t + 1,
@@ -251,9 +206,13 @@ class SeaIcePredictor:
                 "persistence_rmse": round(persist_rmse, 4),
                 "convlstm_iiee_km2": round(model_iiee, 1),
                 "persistence_iiee_km2": round(persist_iiee, 1),
-                "iiee_reduction_pct": round(max(0.0, ((persist_iiee - model_iiee) / (persist_iiee + 1e-6)) * 100.0), 1),
+                "iiee_reduction_pct": iiee_reduction,
                 "rmse_improvement_pct": improvement_pct
             })
+
+        avg_model_rmse = round(float(np.mean([m["convlstm_rmse"] for m in metrics])), 4)
+        avg_persist_rmse = round(float(np.mean([m["persistence_rmse"] for m in metrics])), 4)
+        avg_iiee_red = round(float(np.mean([m["iiee_reduction_pct"] for m in metrics])), 1)
 
         return {
             "days_ahead": days_ahead,
@@ -272,35 +231,36 @@ class SeaIcePredictor:
             ],
             "lead_time_evaluations": metrics,
             "benchmark_summary": {
-                "avg_model_rmse": round(float(np.mean([m["convlstm_rmse"] for m in metrics])), 4),
-                "avg_persistence_rmse": round(float(np.mean([m["persistence_rmse"] for m in metrics])), 4),
-                "avg_iiee_reduction_pct": round(
-                    float(np.mean([m["iiee_reduction_pct"] for m in metrics])), 1
-                ),
-                "verdict": "ConvLSTM model consistently beats persistence baseline across the 7-day forecast lead time."
+                "avg_model_rmse": avg_model_rmse,
+                "avg_persistence_rmse": avg_persist_rmse,
+                "avg_iiee_reduction_pct": avg_iiee_red,
+                "verdict": "PyTorch ConvLSTM model evaluated against held-out NetCDF ground truth observations."
             }
         }
 
     def get_evaluation_metrics(self) -> Dict[str, Any]:
         """
-        Dynamically computes model evaluation metrics over default Antarctic coordinates.
-        Ensures /forecast/metrics and /forecast/sea-ice always share the same source of truth.
+        Returns authentic evaluation benchmark metadata comparing ConvLSTM vs Persistence
+        over the NetCDF Metocean Reference datastore.
         """
-        lats = np.linspace(-78.0, -54.0, 25)
+        lats = np.linspace(-78.0, -56.0, 25)
         lons = np.linspace(-180.0, 180.0, 36)
         res = self.forecast(lats, lons, days_ahead=7, current_day_of_year=45)
         return {
-            "dataset": "NSIDC Sea Ice Index v3 + Copernicus ERA5 atmospheric reanalysis (Antarctic operational theater)",
-            "model_architecture": "PyTorch Spatiotemporal ConvLSTM with Autoregressive Decoding",
-            "baseline": "Persistence Model (freezes Day 0 state forward in time)",
+            "dataset": "Antarctic Metocean Ingestion Store (NSIDC CDR Sea Ice, ECMWF ERA5 winds, CMEMS currents, CF-1.8 NetCDF-4)",
+            "model_architecture": "PyTorch Spatiotemporal ConvLSTM (2-layer, 24 hidden units, Sigmoid head)",
+            "trained_weights_path": str(WEIGHTS_PATH),
+            "weights_loaded": self.weights_loaded,
+            "baseline": "Persistence Model (freezes Day 0 observation forward in time)",
             "lead_time_evaluations": res["lead_time_evaluations"],
             "benchmark_summary": res["benchmark_summary"],
             "key_findings": [
-                "PyTorch ConvLSTM tensor operations directly drive the multi-step spatiotemporal prediction.",
-                "Consistently beats the persistence baseline in the dynamic Marginal Ice Zone (15-80% SIC).",
-                f"Achieves an average IIEE reduction of {res['benchmark_summary']['avg_iiee_reduction_pct']}% across 1-7 day horizons."
+                "Neural network weights directly drive multi-day spatiotemporal predictions without synthetic advection hacks.",
+                "Evaluated against independent future time-slices from the NetCDF reference datastore.",
+                f"Achieves average IIEE reduction of {res['benchmark_summary']['avg_iiee_reduction_pct']}% across 1-7 day horizons."
             ]
         }
+
 
 # Global singleton instance
 sea_ice_predictor = SeaIcePredictor()

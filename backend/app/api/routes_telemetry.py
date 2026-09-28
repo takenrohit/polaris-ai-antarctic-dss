@@ -18,9 +18,9 @@ def get_active_navigational_alerts():
 @router.websocket("/ws")
 async def websocket_telemetry_endpoint(websocket: WebSocket):
     """
-    Real-time streaming telemetry channel for shipboard ECDIS and decision dashboard.
-    Emits continuous live updates: vessel position jitter, dynamic ice drift vectors,
-    and instantaneous POLARIS RIO index calculations.
+    Simulated AIS Telemetry Demonstration Channel for shipboard ECDIS and decision dashboard.
+    Streams synthetic expedition vessel positions, dynamic micro-drifts, and
+    instantaneous POLARIS RIO operational states for bridge interface demonstration.
     """
     await websocket.accept()
     vessels = vessel_service.list_vessels()
@@ -29,17 +29,15 @@ async def websocket_telemetry_endpoint(websocket: WebSocket):
         step = 0
         while True:
             step += 1
-            # Simulate real-time AIS dynamic telemetry updates
+            # Broadcast simulated AIS dynamic vessel updates
             telemetry_data = []
             for v in vessels:
                 v_copy = dict(v)
                 pos = dict(v_copy["current_position"])
                 
-                # Small realistic drift movement
+                # Simulated micro drift advance
                 pos["speed_knots"] = round(pos["speed_knots"] + random.uniform(-0.15, 0.15), 1)
                 pos["fuel_flow_mth"] = round(max(0.3, pos["fuel_flow_mth"] + random.uniform(-0.02, 0.02)), 2)
-                
-                # Micro position advance
                 pos["lat"] = round(pos["lat"] + random.uniform(-0.002, 0.002), 4)
                 pos["lon"] = round(pos["lon"] + random.uniform(-0.003, 0.003), 4)
 
@@ -48,11 +46,11 @@ async def websocket_telemetry_endpoint(websocket: WebSocket):
                     "name": v["name"],
                     "position": pos,
                     "ice_class": v["ice_class"],
-                    "status": "EN_ROUTE"
+                    "status": "EN_ROUTE (SIMULATED)"
                 })
 
             payload = {
-                "type": "TELEMETRY_UPDATE",
+                "type": "SIMULATED_TELEMETRY_UPDATE",
                 "timestamp_tick": step,
                 "fleet": telemetry_data,
                 "navarea_status": "NORMAL_WATCH",
