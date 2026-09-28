@@ -150,8 +150,8 @@ class PolarRouteOptimizer:
         great_circle_dist = haversine_nm(origin_lat, origin_lon, dest_lat, dest_lon)
 
         for mode in modes:
-            waypoints = self._synthesize_mode_corridor(
-                origin_lat, origin_lon, dest_lat, dest_lon, mode, vessel_ice_class, icebergs
+            waypoints = self._a_star_polar_corridor(
+                origin_lat, origin_lon, dest_lat, dest_lon, mode, vessel_ice_class, cruising_speed_knots, icebergs
             )
             route_profile = self._calculate_route_metrics(
                 waypoints, vessel_ice_class, cruising_speed_knots, mode, icebergs
@@ -176,7 +176,16 @@ class PolarRouteOptimizer:
             }
         }
 
-    def _synthesize_mode_corridor(
+    def _estimate_sic(self, lat: float, lon: float) -> float:
+        """Estimates Sea-Ice Concentration at coordinate."""
+        if lat > -58.0:
+            return 0.0
+        sic = min(0.95, max(0.0, (-58.0 - lat) / 14.0 * 0.85))
+        if -70.0 <= lat <= -68.0 and 70.0 <= lon <= 80.0:
+            sic = max(0.3, sic - 0.2) # Coastal lead near Bharati
+        return sic
+
+    def _a_star_polar_corridor(
         self,
         lat1: float,
         lon1: float,
@@ -184,41 +193,132 @@ class PolarRouteOptimizer:
         lon2: float,
         mode: str,
         ice_class: str,
+        cruising_speed: float,
         icebergs: List[Dict[str, Any]]
     ) -> List[Tuple[float, float]]:
-        """Synthesizes realistic navigational waypoints adapting to polar ice constraints."""
-        n_legs = 16
-        coords = []
+        """
+        True A* Graph Search over polar navigation mesh with dynamic cost evaluation.
+        Uses heapq priority queue, haversine heuristic, IMO POLARIS limits, and fuel penalties.
+        """
+        weights = {
+            "BALANCED": {"dist": 1.0, "ice": 1.5, "berg": 2.0, "fuel": 1.2},
+            "SAFEST":   {"dist": 0.8, "ice": 4.5, "berg": 6.0, "fuel": 0.8},
+            "FASTEST":  {"dist": 1.8, "ice": 0.6, "berg": 1.0, "fuel": 0.3},
+            "ECO_FUEL": {"dist": 0.9, "ice": 2.2, "berg": 1.8, "fuel": 3.8}
+        }.get(mode, {"dist": 1.0, "ice": 1.5, "berg": 2.0, "fuel": 1.2})
 
-        # Intermediate detour offsets based on mode to bypass known hazard belts
-        for i in range(n_legs + 1):
-            fraction = i / float(n_legs)
-            # Great circle interpolation
-            lat = lat1 + (lat2 - lat1) * fraction
-            lon = lon1 + (lon2 - lon1) * fraction
+        lat_step = 2.0 if abs(lat2 - lat1) > 15.0 else 1.0
+        lon_step = 4.0 if abs(lon2 - lon1) > 30.0 else 2.0
 
-            if 0 < i < n_legs:
-                # Safest mode swings north of the marginal ice zone longer, then enters perpendicular to pack
-                if mode == "SAFEST":
-                    if lat < -58.0:
-                        lat = min(-58.0, lat + 3.0 * math.sin(fraction * math.pi))
-                        lon = lon + 2.5 * math.sin(fraction * math.pi)
-                elif mode == "ECO_FUEL":
-                    # Avoids pushing through dense ice shelf friction
-                    if lat < -62.0:
-                        lat = lat + 1.8 * math.sin(fraction * math.pi)
-                        lon = lon - 1.5 * math.sin(fraction * math.pi)
-                elif mode == "FASTEST":
-                    # Stays as close to direct great circle as possible
-                    pass
-                elif mode == "BALANCED":
-                    # Mild detour avoiding high iceberg density
-                    if lat < -60.0:
-                        lat = lat + 1.2 * math.sin(fraction * math.pi)
+        min_lat = min(lat1, lat2) - 4.0
+        max_lat = max(lat1, lat2) + 4.0
+        min_lon = min(lon1, lon2) - 15.0
+        max_lon = max(lon1, lon2) + 15.0
 
-            coords.append((round(lat, 4), round(lon, 4)))
+        start_node = (round(lat1 / lat_step) * lat_step, round(lon1 / lon_step) * lon_step)
+        goal_node = (round(lat2 / lat_step) * lat_step, round(lon2 / lon_step) * lon_step)
 
-        return coords
+        pq = []
+        counter = 0
+        heapq.heappush(pq, (0.0, counter, start_node))
+
+        came_from: Dict[Tuple[float, float], Tuple[float, float]] = {}
+        g_score: Dict[Tuple[float, float], float] = {start_node: 0.0}
+
+        def heuristic(node: Tuple[float, float]) -> float:
+            return haversine_nm(node[0], node[1], lat2, lon2) * weights["dist"]
+
+        found_path = False
+        max_iterations = 3000
+        iterations = 0
+
+        neighbor_offsets = [
+            (lat_step, 0), (-lat_step, 0), (0, lon_step), (0, -lon_step),
+            (lat_step, lon_step), (lat_step, -lon_step), (-lat_step, lon_step), (-lat_step, -lon_step)
+        ]
+
+        while pq and iterations < max_iterations:
+            iterations += 1
+            _, _, current = heapq.heappop(pq)
+
+            if haversine_nm(current[0], current[1], goal_node[0], goal_node[1]) < (lat_step * 60.0):
+                came_from[goal_node] = current
+                found_path = True
+                break
+
+            current_g = g_score[current]
+
+            for d_lat, d_lon in neighbor_offsets:
+                nbr_lat = round(current[0] + d_lat, 2)
+                nbr_lon = round(current[1] + d_lon, 2)
+                nbr = (nbr_lat, nbr_lon)
+
+                if not (min_lat <= nbr_lat <= max_lat and min_lon <= nbr_lon <= max_lon):
+                    continue
+
+                if self.is_land_or_shelf(nbr_lat, nbr_lon):
+                    continue
+
+                step_dist = haversine_nm(current[0], current[1], nbr_lat, nbr_lon)
+                sic = self._estimate_sic(nbr_lat, nbr_lon)
+                polaris = calculate_polaris_rio(ice_class, sic)
+
+                if polaris["status"] == "PROHIBITED" and ice_class != "PC1":
+                    ice_penalty = 5000.0
+                elif polaris["status"] == "ESCORT_REQUIRED":
+                    ice_penalty = 250.0 * (sic ** 1.2)
+                else:
+                    ice_penalty = 60.0 * (sic ** 1.5)
+
+                berg_hazard = self.get_iceberg_hazard_cost(nbr_lat, nbr_lon, icebergs)
+                fuel_cost = self.estimate_fuel_burn_mt(step_dist, cruising_speed, sic, ice_class) * 12.0
+
+                edge_cost = (
+                    step_dist * weights["dist"]
+                    + ice_penalty * weights["ice"]
+                    + berg_hazard * weights["berg"]
+                    + fuel_cost * weights["fuel"]
+                )
+
+                tentative_g = current_g + edge_cost
+
+                if nbr not in g_score or tentative_g < g_score[nbr]:
+                    came_from[nbr] = current
+                    g_score[nbr] = tentative_g
+                    f_score = tentative_g + heuristic(nbr)
+                    counter += 1
+                    heapq.heappush(pq, (f_score, counter, nbr))
+
+        path = []
+        if found_path and goal_node in came_from:
+            curr = goal_node
+            while curr in came_from:
+                path.append(curr)
+                curr = came_from[curr]
+            path.append(start_node)
+            path.reverse()
+        else:
+            n_legs = 14
+            for k in range(n_legs + 1):
+                f = k / float(n_legs)
+                path.append((round(lat1 + (lat2 - lat1) * f, 4), round(lon1 + (lon2 - lon1) * f, 4)))
+
+        if len(path) > 16:
+            indices = np.linspace(0, len(path) - 1, 16, dtype=int)
+            subsampled = [path[idx] for idx in indices]
+        elif len(path) < 10:
+            subsampled = []
+            for i in range(len(path) - 1):
+                subsampled.append(path[i])
+                mid = (round((path[i][0] + path[i+1][0]) / 2, 4), round((path[i][1] + path[i+1][1]) / 2, 4))
+                subsampled.append(mid)
+            subsampled.append(path[-1])
+        else:
+            subsampled = list(path)
+
+        subsampled[0] = (round(lat1, 4), round(lon1, 4))
+        subsampled[-1] = (round(lat2, 4), round(lon2, 4))
+        return subsampled
 
     def _calculate_route_metrics(
         self,
