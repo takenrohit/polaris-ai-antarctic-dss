@@ -45,22 +45,29 @@ def optimize_polar_route(payload: RouteOptimizationRequest):
     - Fastest (Direct icebreaker transit)
     - Eco-Fuel (Minimizes fuel burn & ice resistance)
     """
-    # Resolve coordinates
+    # Resolve origin coordinates & display name
     if payload.custom_origin_lat is not None and payload.custom_origin_lon is not None:
         o_lat, o_lon = payload.custom_origin_lat, payload.custom_origin_lon
+        origin_name = f"Custom Origin ({o_lat:.3f}°, {o_lon:.3f}°)"
     elif payload.origin_key and payload.origin_key in ANTARCTIC_WAYPOINTS:
         o_lat = ANTARCTIC_WAYPOINTS[payload.origin_key]["lat"]
         o_lon = ANTARCTIC_WAYPOINTS[payload.origin_key]["lon"]
+        origin_name = ANTARCTIC_WAYPOINTS[payload.origin_key]["name"]
     else:
         o_lat, o_lon = -33.918, 18.423 # Default Cape Town
+        origin_name = "Port of Cape Town (South Africa Gateway)"
 
+    # Resolve destination coordinates & display name
     if payload.custom_dest_lat is not None and payload.custom_dest_lon is not None:
         d_lat, d_lon = payload.custom_dest_lat, payload.custom_dest_lon
+        dest_name = f"Custom Destination ({d_lat:.3f}°, {d_lon:.3f}°)"
     elif payload.dest_key and payload.dest_key in ANTARCTIC_WAYPOINTS:
         d_lat = ANTARCTIC_WAYPOINTS[payload.dest_key]["lat"]
         d_lon = ANTARCTIC_WAYPOINTS[payload.dest_key]["lon"]
+        dest_name = ANTARCTIC_WAYPOINTS[payload.dest_key]["name"]
     else:
         d_lat, d_lon = -69.407, 76.187 # Default Bharati Station
+        dest_name = "Bharati Research Station (India)"
 
     icebergs = iceberg_service.list_icebergs()
 
@@ -74,9 +81,6 @@ def optimize_polar_route(payload: RouteOptimizationRequest):
         cruising_speed_knots=payload.cruising_speed_knots
     )
 
-    # Attach human-readable station names if matched
-    origin_name = ANTARCTIC_WAYPOINTS.get(payload.origin_key, {}).get("name", f"Custom ({o_lat:.2f}, {o_lon:.2f})")
-    dest_name = ANTARCTIC_WAYPOINTS.get(payload.dest_key, {}).get("name", f"Custom ({d_lat:.2f}, {d_lon:.2f})")
     result["origin_name"] = origin_name
     result["dest_name"] = dest_name
 
