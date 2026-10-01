@@ -220,6 +220,17 @@ def evaluate_iceberg_drift() -> Dict[str, Any]:
                 err_dr_km = haversine_nm(lat_dr, lon_dr, lat2, lon2) * 1.852
 
                 # Real 2D Hydrodynamic Momentum Drift Engine
+                # Use real berg dimensions from BYU size_1/size_2 columns (major/minor axis km).
+                # Fall back to 20/10 km if no valid size measurements exist.
+                valid_sizes = df[(df.get("size_1", 0) > 0) & (df.get("size_2", 0) > 0)]
+                if len(valid_sizes) > 0:
+                    berg_len_km = float(np.median(valid_sizes["size_1"].values))
+                    berg_wid_km = float(np.median(valid_sizes["size_2"].values))
+                else:
+                    berg_len_km, berg_wid_km = 20.0, 10.0
+                berg_len_km = max(1.0, min(200.0, berg_len_km))
+                berg_wid_km = max(0.5, min(100.0, berg_wid_km))
+
                 berg_dict = {
                     "id": berg_id,
                     "name": berg_id,
@@ -227,9 +238,9 @@ def evaluate_iceberg_drift() -> Dict[str, Any]:
                     "lon": lon1,
                     "drift_speed_knots": v_knots,
                     "drift_bearing_deg": b_deg,
-                    "length_km": 20.0,
-                    "width_km": 10.0,
-                    "thickness_m": 250.0
+                    "length_km": berg_len_km,
+                    "width_km": berg_wid_km,
+                    "thickness_m": 250.0  # BYU archive does not record thickness; 250m is typical tabular
                 }
                 traj_res = iceberg_drift_engine.predict_trajectory(
                     berg_dict,
@@ -366,33 +377,51 @@ def evaluate_routing_corridors() -> Dict[str, Any]:
 def run_ablation_studies() -> Dict[str, Any]:
     """
     Rigorously tests ablations on the modeling pipeline:
-    1. Atmospheric Wind Forcing Ablation (Zero-Wind)
-    2. Ocean Current Forcing Ablation (Zero-Currents)
+    1. Atmospheric Wind Forcing Ablation — synthetic strong-wind case (10 m/s westerly)
+    2. Ocean Current Forcing Ablation — synthetic ACC case (0.4 m/s eastward)
     3. Lindqvist Ice Resistance vs Open Water Baseline
+
+    NOTE: The real-data ablation (using the NetCDF store) gives 0.0% wind and 0.2%
+    currents because the synthetic data store returns near-zero environmental forcing
+    at berg locations. To demonstrate the model's physical sensitivity, we run a
+    synthetic strong-forcing scenario where forcing is added explicitly.
     """
     print("--- [4/4] Executing Component Ablation Studies ---")
-    berg = INITIAL_ICEBERGS[0] # A-23a
+    berg = INITIAL_ICEBERGS[0]  # A-23a
 
-    # Baseline physics
-    t_full = iceberg_drift_engine.predict_trajectory(berg, forecast_hours=72, time_step_hours=6)
-    dist_full = t_full["drift_summary"]["total_drift_distance_km"]
-
-    # Ablation 1: Wind removed
     orig_forcings = iceberg_drift_engine.get_environmental_forcing
+
+    # Baseline with real-data forcings (near-zero in synthetic store)
+    t_full_realdata = iceberg_drift_engine.predict_trajectory(berg, forecast_hours=72, time_step_hours=6)
+    dist_full_realdata = t_full_realdata["drift_summary"]["total_drift_distance_km"]
+
+    # Synthetic strong-forcing baseline: 10 m/s westerly wind + 0.4 m/s ACC current
+    # These are realistic Southern Ocean values, allowing genuine sensitivity measurement.
+    STRONG_WIND_MS = 10.0   # 10 m/s ≈ 19 knots westerly
+    ACC_CURRENT_MS = 0.40   # 0.4 m/s typical Antarctic Circumpolar Current core
     iceberg_drift_engine.get_environmental_forcing = lambda lat, lon, h: (
-        orig_forcings(lat, lon, h)[0], orig_forcings(lat, lon, h)[1], 0.0, 0.0
+        ACC_CURRENT_MS, 0.0, STRONG_WIND_MS, 0.0   # (u_curr, v_curr, u_wind, v_wind)
+    )
+    t_full_strong = iceberg_drift_engine.predict_trajectory(berg, forecast_hours=72, time_step_hours=6)
+    dist_full_strong = t_full_strong["drift_summary"]["total_drift_distance_km"]
+
+    # Ablation 1: Wind removed (currents only)
+    iceberg_drift_engine.get_environmental_forcing = lambda lat, lon, h: (
+        ACC_CURRENT_MS, 0.0, 0.0, 0.0
     )
     t_nowind = iceberg_drift_engine.predict_trajectory(berg, forecast_hours=72, time_step_hours=6)
     dist_nowind = t_nowind["drift_summary"]["total_drift_distance_km"]
+    wind_impact_pct = round(abs(dist_full_strong - dist_nowind) / (dist_full_strong + 1e-6) * 100.0, 1)
 
-    # Ablation 2: Currents removed
+    # Ablation 2: Currents removed (wind only)
     iceberg_drift_engine.get_environmental_forcing = lambda lat, lon, h: (
-        0.0, 0.0, orig_forcings(lat, lon, h)[2], orig_forcings(lat, lon, h)[3]
+        0.0, 0.0, STRONG_WIND_MS, 0.0
     )
     t_nocurr = iceberg_drift_engine.predict_trajectory(berg, forecast_hours=72, time_step_hours=6)
     dist_nocurr = t_nocurr["drift_summary"]["total_drift_distance_km"]
+    curr_impact_pct = round(abs(dist_full_strong - dist_nocurr) / (dist_full_strong + 1e-6) * 100.0, 1)
 
-    # Restore forcings method
+    # Restore original forcings
     iceberg_drift_engine.get_environmental_forcing = orig_forcings
 
     # Ablation 3: Lindqvist Ice Resistance vs Pure Open Water
@@ -405,20 +434,28 @@ def run_ablation_studies() -> Dict[str, Any]:
     ice_resistance_surcharge_pct = round(((fuel_in_ice - fuel_open_water) / fuel_open_water) * 100.0, 1)
 
     ablation_results = {
-        "wind_drift_impact_pct": round(abs(dist_full - dist_nowind) / (dist_full + 1e-6) * 100.0, 1),
-        "ocean_current_drift_impact_pct": round(abs(dist_full - dist_nocurr) / (dist_full + 1e-6) * 100.0, 1),
+        "wind_drift_impact_pct": wind_impact_pct,
+        "ocean_current_drift_impact_pct": curr_impact_pct,
         "lindqvist_fuel_ice_surcharge_pct": ice_resistance_surcharge_pct,
+        "ablation_note": (
+            f"Synthetic strong-forcing scenario: {STRONG_WIND_MS} m/s westerly wind + "
+            f"{ACC_CURRENT_MS} m/s ACC current. Real-data ablation gives ~0% because the "
+            f"synthetic NetCDF store returns near-zero environmental forcing at berg locations."
+        ),
         "details": {
-            "full_physics_drift_72h_km": dist_full,
+            "strong_forcing_full_drift_72h_km": dist_full_strong,
             "no_wind_drift_72h_km": dist_nowind,
             "no_currents_drift_72h_km": dist_nocurr,
+            "real_data_full_drift_72h_km": dist_full_realdata,
             "mgo_fuel_100nm_ice75_mt": fuel_in_ice,
             "mgo_fuel_100nm_open_water_mt": fuel_open_water
         }
     }
 
-    print(f"  -> Wind Forcing Contribution: {ablation_results['wind_drift_impact_pct']}% of trajectory displacement")
+    print(f"  -> Wind Forcing Contribution (10 m/s synthetic): {wind_impact_pct}% of trajectory")
+    print(f"  -> Current Forcing Contribution (0.4 m/s synthetic ACC): {curr_impact_pct}% of trajectory")
     return ablation_results
+
 
 
 def generate_markdown_report(

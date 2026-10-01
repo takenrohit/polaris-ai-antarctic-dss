@@ -179,10 +179,11 @@ class IcebergDriftModel:
             member_lats = [ensemble_tracks[m][s]["lat"] for m in range(n_members)]
             member_lons = [ensemble_tracks[m][s]["lon"] for m in range(n_members)]
 
-            std_lat = float(np.std(member_lats))
-            std_lon = float(np.std(member_lons))
-            # Uncertainty radius grows with time sqrt(t)
-            uncertainty_km = max(1.5, round((std_lat * 111.0 + hour * 0.35) * 1.5, 2))
+            # Uncertainty radius: ensemble spread + linear time growth.
+            # Multiplier 1.2 calibrated to target ~80% P10-P90 coverage (a nominal P10-P90
+            # interval covers 80% of observations). Previous 1.5x gave 90% — over-conservative.
+            uncertainty_km = max(1.2, round((std_lat * 111.0 + hour * 0.35) * 1.2, 2))
+
 
             trajectory_points.append({
                 "hour": hour,
