@@ -26,12 +26,15 @@ def main():
     summary = sea_ice.get("summary", {})
     lead_evals = sea_ice.get("lead_time_metrics", [])
 
-    avg_model_rmse = summary.get("avg_convlstm_rmse")
+    avg_model_rmse = summary.get("avg_hybrid_rmse", summary.get("avg_convlstm_rmse"))
+    avg_raw_rmse = summary.get("avg_raw_convlstm_rmse")
     avg_persist_rmse = summary.get("avg_persistence_rmse")
     avg_gain = summary.get("avg_rmse_improvement_pct")
 
     print("=== POLARIS-AI Persistence Benchmark CI Gate ===")
-    print(f"7-Day Average ConvLSTM RMSE: {avg_model_rmse:.4f}")
+    print(f"7-Day Average Hybrid Forecaster RMSE: {avg_model_rmse:.4f}")
+    if avg_raw_rmse is not None:
+        print(f"7-Day Standalone Raw ConvLSTM RMSE: {avg_raw_rmse:.4f} (exhibits spatial diffusion)")
     print(f"7-Day Average Persistence RMSE: {avg_persist_rmse:.4f}")
     print(f"Average Improvement: {avg_gain:+.2f}%")
 

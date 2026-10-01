@@ -326,7 +326,6 @@ Below is an operational route optimization request for the polar resupply vessel
       "polaris_compliance": "COMPLIANT"
     }
   }
-  }
 }
 ```
 
@@ -342,36 +341,37 @@ Evaluated with plain signed metrics (no artificial clamping) against standard pe
 | Model / Horizon | Lead Day 1 RMSE | Lead Day 3 RMSE | Lead Day 5 RMSE | Lead Day 7 RMSE | 7-Day Mean RMSE | Gain vs Persistence |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Climatology Baseline** | 0.0352 | 0.0438 | 0.0619 | 0.0786 | 0.0548 | Baseline |
+| **Standalone Raw ConvLSTM** | 0.0173 | 0.0411 | 0.0586 | 0.0683 | 0.0462 | -30.9% (spatial smoothing) |
 | **Persistence Baseline** | 0.0121 | 0.0261 | 0.0448 | 0.0603 | 0.0353 | Reference |
-| **ConvLSTM + Blended Advection** | **0.0122** | **0.0262** | **0.0441** | **0.0575** | **0.0345** | **+2.27% Mean (+4.70% at Day 7)** |
+| **Hybrid Forecaster (Advection + ConvLSTM)** | **0.0122** | **0.0262** | **0.0441** | **0.0575** | **0.0345** | **+2.27% Mean (+4.70% at Day 7)** |
 
-*Operational reality:* The forecast matches persistence at Day 1 (0.0122 vs 0.0121, -0.48%) and outperforms persistence at Days 5–7 as advection and thermodynamic melt trends accumulate (+1.56% at Day 5, +3.86% at Day 6, +4.70% at Day 7).
+*Operational reality & scientific transparency:* Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. Note: The $\alpha(\tau)$ schedule was calibrated on the validation window; validation across broader seasonal splits is recommended.
 
 ### 2. Multi-Berg, Multi-Window Iceberg Drift Validation (BYU/USNIC Satellite Passes)
-Evaluated across **10 icebergs** and **60 multi-day satellite observation windows** with per-berg estimated drift velocity:
+Evaluated across **10 icebergs** and **60 multi-day satellite observation windows** with per-berg estimated drift velocity executed via the real 2D hydrodynamic momentum drift engine:
 
-| Evaluation Metric | 2D Momentum Physics Model | Linear Dead-Reckoning Baseline |
+| Evaluation Metric | 2D Momentum Physics Model (Real Drift Engine) | Linear Dead-Reckoning Baseline |
 | :--- | :---: | :---: |
-| **Mean Displacement Error** | **15.3 km** | 12.7 km |
-| **Median Displacement Error** | **7.9 km** | 3.9 km |
-| **25th Percentile ({25}$)** | **5.0 km** | 0.6 km |
-| **75th Percentile ({75}$)** | **12.4 km** | 9.4 km |
-| **90th Percentile ({90}$)** | **33.0 km** | 20.9 km |
-| **Ensemble Cone Calibration ({10}$–{90}$)** | **90.0% coverage** (54/60 inside cone) | N/A (Deterministic) |
+| **Mean Displacement Error** | **10.2 km** | 12.7 km |
+| **Median Displacement Error** | **6.9 km** | 3.9 km |
+| **25th Percentile ($p_{25}$)** | **3.9 km** | 0.6 km |
+| **75th Percentile ($p_{75}$)** | **11.3 km** | 9.4 km |
+| **90th Percentile ($p_{90}$)** | **18.1 km** | 20.9 km |
+| **Ensemble Cone Calibration ($P_{10}$–$P_{90}$)** | **90.0% coverage** (54/60 inside cone) | N/A (Deterministic) |
 
 ### 3. Routing Pareto Frontiers (Cape Town $\rightarrow$ Bharati Station, PC5 Vessel)
 Evaluated under both standard baseline and late-season Marginal Ice Zone (MIZ) stress conditions:
 
 - **Standard Operational Baseline:**
-  - **Fastest Transit:** .1\text{ NM}$, .43\text{ d}$, .3\text{ MT MGO}$, Min RIO $
-  - **Balanced Route:** .1\text{ NM}$, .54\text{ d}$, .1\text{ MT MGO}$, Min RIO $
-  - **Eco-Fuel Route:** .3\text{ NM}$, .28\text{ d}$, .9\text{ MT MGO}$, Min RIO $ ($-26.5\%$ fuel savings vs Balanced)
-  - **Maximum Safety:** .9\text{ NM}$, .67\text{ d}$, .7\text{ MT MGO}$, Min RIO $
+  - **Fastest Transit:** $3022.1\text{ NM}$, $8.43\text{ d}$, $224.3\text{ MT MGO}$, Min RIO $29$
+  - **Balanced Route:** $3092.1\text{ NM}$, $9.54\text{ d}$, $197.1\text{ MT MGO}$, Min RIO $30$
+  - **Eco-Fuel Route:** $3094.3\text{ NM}$, $12.28\text{ d}$, $144.9\text{ MT MGO}$, Min RIO $30$ ($-26.5\%$ fuel savings vs Balanced)
+  - **Maximum Safety:** $3219.9\text{ NM}$, $11.67\text{ d}$, $166.7\text{ MT MGO}$, Min RIO $30$
 - **Late-Season Marginal Ice Zone (MIZ) Stress Scenario (Varying RIOs):**
-  - **Fastest Transit:** .1\text{ NM}$, .72\text{ d}$, .7\text{ MT MGO}$, **Min RIO 12** (heavy ice penetration)
-  - **Balanced Route:** .1\text{ NM}$, .91\text{ d}$, .3\text{ MT MGO}$, **Min RIO 22**
-  - **Eco-Fuel Route:** .3\text{ NM}$, .56\text{ d}$, .2\text{ MT MGO}$, **Min RIO 25**
-  - **Maximum Safety:** .9\text{ NM}$, .67\text{ d}$, .7\text{ MT MGO}$, **Min RIO 30** (outer perimeter lead)
+  - **Fastest Transit:** $3050.7\text{ NM}$, $9.26\text{ d}$, $235.6\text{ MT MGO}$, **Min RIO 12** (heavy ice penetration)
+  - **Balanced Route:** $3092.1\text{ NM}$, $10.40\text{ d}$, $208.0\text{ MT MGO}$, **Min RIO 12**
+  - **Eco-Fuel Route:** $3093.2\text{ NM}$, $13.43\text{ d}$, $160.1\text{ MT MGO}$, **Min RIO 12**
+  - **Maximum Safety:** $3227.9\text{ NM}$, $12.70\text{ d}$, $180.5\text{ MT MGO}$, **Min RIO 12** (outer perimeter lead)
 
 ---
 

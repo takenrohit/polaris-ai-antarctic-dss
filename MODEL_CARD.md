@@ -22,21 +22,25 @@
 
 ---
 
-## 2. Model Architecture
+## 2. Model Architecture and Forecasting Pipeline
 
-The model is formulated as an autoregressive Convolutional Long Short-Term Memory recurrent neural network:
+The forecasting pipeline is structured as a **Physics-Guided Hybrid Neural Forecaster**:
+1. **Spatiotemporal ConvLSTM Recurrent Neural Network:**
+   $$\mathcal{X} \in \mathbb{R}^{B \times T_{in} \times C \times H \times W}$$
+   - **Input Dimension:** $B=1$, $T_{in}=5$ days, $C=5$ physical channels ($SIC, SST, U_{10}, V_{10}, \text{Current Speed}$).
+   - **Recurrent Backbone:** 2 cascaded `ConvLSTMCell` layers with 24 hidden channels each and $3 \times 3$ convolutional kernels.
+   - **Decoding Head:** 2D Convolution ($24 \to 16$, ReLU) followed by $1 \times 1$ Convolution with Sigmoid activation enforcing physical bounds $[0.0, 1.0]$.
+   - **Total Parameters:** ~71,000 trainable parameters.
+   - **Role:** Generates multi-step residual trend deltas $\Delta_{NN}(t)$.
 
-$$\mathcal{X} \in \mathbb{R}^{B \times T_{in} \times C \times H \times W}$$
+2. **Kinematic Advection & Thermodynamic Melt Physics:**
+   - Evaluates free-drift advection $\vec{v}_{ice} \approx 0.012 \cdot \vec{v}_{wind}$ via sub-pixel coordinate mapping (`scipy.ndimage.map_coordinates`).
+   - Estimates empirical seasonal thermodynamic melt trends from antecedent training observations.
 
-- **Input Dimension:** $B=1$, $T_{in}=5$ days, $C=5$ physical channels:
-  1. Sea Ice Concentration ($SIC \in [0.0, 1.0]$)
-  2. Sea Surface Temperature ($SST \in [-2.0, 15.0]\text{ °C}$)
-  3. 10m U-Wind Component ($U_{10}\text{ m/s}$)
-  4. 10m V-Wind Component ($V_{10}\text{ m/s}$)
-  5. Ocean Surface Current Speed ($\sqrt{u_{curr}^2 + v_{curr}^2}\text{ m/s}$)
-- **Recurrent Backbone:** 2 cascaded `ConvLSTMCell` layers with 24 hidden channels each and $3 \times 3$ convolutional kernels.
-- **Decoding Head:** 2D Convolution ($24 \to 16$, ReLU) followed by $1 \times 1$ Convolution with Sigmoid activation enforcing physical bounds $[0.0, 1.0]$.
-- **Total Parameters:** ~71,000 trainable parameters.
+3. **Empirical Horizon Blending Schedule ($\alpha(\tau)$):**
+   - Combines baseline persistence $S_0$, advected/thermodynamic state $S_{phys}(\tau)$, and neural residual $\Delta_{NN}(\tau)$:
+     $$S_{pred}(\tau) = (1 - \alpha(\tau)) S_0 + \alpha(\tau) S_{phys}(\tau) + 0.02 \Delta_{NN}(\tau)$$
+   - Where $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$, ensuring Day 1 matches persistence fidelity while allowing advective-melt dynamics to guide extended lead times (Days 5–7).
 
 ---
 
@@ -59,15 +63,15 @@ Where $w_{MIZ} = 2.0$ for pixels within $0.10 \le y_{true} \le 0.80$.
 
 Evaluated with plain signed metrics (no artificial clamping) against standard persistence and climatology:
 
-| Forecast Horizon | ConvLSTM RMSE | Persistence RMSE | ConvLSTM IIEE ($km^2$) | Persistence IIEE ($km^2$) | IIEE Gain | RMSE Gain |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Lead Day 1** | **0.0122** | 0.0121 | 2,500 | 2,500 | 0.00% | -0.48% |
-| **Lead Day 3** | **0.0262** | 0.0261 | 5,000 | 4,375 | -14.29% | -0.29% |
-| **Lead Day 5** | **0.0441** | 0.0448 | 10,000 | 9,375 | -6.67% | **+1.56%** |
-| **Lead Day 7** | **0.0575** | 0.0603 | 13,125 | 14,375 | **+8.70%** | **+4.70%** |
-| **7-Day Mean** | **0.0345** | 0.0353 | 7,679 | 7,232 | -3.05% | **+2.27%** |
+| Forecast Horizon | Hybrid Model RMSE | Raw ConvLSTM RMSE | Persistence RMSE | Hybrid IIEE ($km^2$) | Persistence IIEE ($km^2$) | IIEE Gain | Hybrid RMSE Gain |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Lead Day 1** | **0.0122** | 0.0173 | 0.0121 | 2,500 | 2,500 | 0.00% | -0.48% |
+| **Lead Day 3** | **0.0262** | 0.0411 | 0.0261 | 5,000 | 4,375 | -14.29% | -0.29% |
+| **Lead Day 5** | **0.0441** | 0.0586 | 0.0448 | 10,000 | 9,375 | -6.67% | **+1.56%** |
+| **Lead Day 7** | **0.0575** | 0.0683 | 0.0603 | 13,125 | 14,375 | **+8.70%** | **+4.70%** |
+| **7-Day Mean** | **0.0345** | 0.0462 | 0.0353 | 7,679 | 7,232 | -3.05% | **+2.27%** |
 
-*Operational Note:* The blended ConvLSTM residual architecture matches persistence at Day 1 and achieves statistically significant outperformance at Days 5–7 as physical advection and thermodynamic melt trends accumulate. Plain signed metrics are reported without clamping.
+*Scientific Transparency Note:* Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid (7-day mean RMSE 0.0462 vs 0.0353). The operational forecast gain is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. Note: The $\alpha(\tau)$ schedule was calibrated on the validation window; testing across independent seasons is recommended in future iterations.
 
 ---
 

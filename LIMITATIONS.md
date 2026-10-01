@@ -42,3 +42,14 @@
 
 ### 3. Fail-Safe Quality Gate
 - If observational data latency exceeds **48 hours** or satellite concentration feeds drop out, the system automatically trips the fail-safe gate, transitioning into a `DO_NOT_USE_FOR_NAVIGATION` operational state (`fail_safe_gate_tripped = True`, `is_safe_for_decision_support = False`).
+
+---
+
+## 4. Machine Learning & Forecasting Model Boundaries
+
+### 1. Pure ConvLSTM Spatial Diffusion
+- Standalone recursive ConvLSTM rollouts over multi-day horizons exhibit numerical diffusion and spatial smoothing, leading the standalone network to underperform persistence on this polar grid (7-day mean RMSE: 0.0462 vs 0.0353).
+
+### 2. Empirical Horizon Blending Schedule ($\alpha(\tau)$)
+- Operational forecasting gains (+2.27% mean, +4.70% at Day 7) are achieved through a physics-guided hybrid combining kinematic wind advection, thermodynamic melt trends, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$.
+- This schedule was empirically calibrated on the validation window (January 2026). While it encodes valid physical intuition (persistence dominates Day 1 while advection/thermodynamics govern extended horizons), validation across broader multi-seasonal test regimes is required prior to unmonitored operational deployment.

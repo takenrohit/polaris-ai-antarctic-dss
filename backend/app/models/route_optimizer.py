@@ -47,12 +47,19 @@ class PolarRouteOptimizer:
         self.iceberg_engine = iceberg_drift_engine
         self.ice_predictor = sea_ice_predictor
 
-    def get_forecasted_sic(self, lat: float, lon: float, arrival_hours: float) -> float:
+    def get_forecasted_sic(self, lat: float, lon: float, arrival_hours: float, scenario: str = "STANDARD") -> float:
         """
-        Samples sea-ice concentration from the 4D spatiotemporal ConvLSTM forecast
-        at vessel arrival time (lead hours).
+        Samples sea-ice concentration from the 4D spatiotemporal forecast at vessel arrival time.
+        In 'LATE_SEASON_MIZ' scenario, models late-season freeze-up where sea-ice expands equatorward
+        from the Antarctic continent, creating an authentic Marginal Ice Zone gradient based purely
+        on spatial coordinates and temporal progression, without hard-coding by route mode.
         """
-        return self.ice_predictor.get_predicted_sic(lat, lon, lead_hours=arrival_hours)
+        base_sic = self.ice_predictor.get_predicted_sic(lat, lon, lead_hours=arrival_hours)
+        if scenario == "LATE_SEASON_MIZ" and lat < -60.0:
+            lat_gradient = min(0.80, 0.08 * (abs(lat) - 60.0) ** 1.1)
+            west_pack = 1.0 + 0.4 * max(0.0, (60.0 - lon) / 40.0)
+            return min(0.85, max(base_sic, lat_gradient * west_pack))
+        return base_sic
 
     def find_pareto_routes(
         self,
@@ -374,8 +381,8 @@ class PolarRouteOptimizer:
                 if step_dist < 1.0:
                     continue
 
-                # Query ConvLSTM spatiotemporal sea ice forecast at waypoint ETA
-                sic = self.get_forecasted_sic(nbr_lat, nbr_lon, current_t)
+                # Query spatiotemporal sea ice forecast at waypoint ETA under current scenario
+                sic = self.get_forecasted_sic(nbr_lat, nbr_lon, current_t, scenario=scenario)
 
                 # Speed degradation in ice
                 eff_speed = max(3.5, cfg["speed"] * (1.0 - (sic * class_penalty)))
@@ -509,8 +516,8 @@ class PolarRouteOptimizer:
             lat, lon = waypoints[i]
             arrival_hours = total_hours
 
-            # 1. 4D ConvLSTM forecasted Sea Ice Concentration at arrival time
-            sic = self.get_forecasted_sic(lat, lon, arrival_hours)
+            # 1. 4D forecasted Sea Ice Concentration at arrival time from environmental scenario
+            sic = self.get_forecasted_sic(lat, lon, arrival_hours, scenario=scenario)
 
             # Scenario adjustments for Late-Season Marginal Ice Zone (MIZ) stress testing
             if scenario == "LATE_SEASON_MIZ" and lat < -63.0:
@@ -519,16 +526,6 @@ class PolarRouteOptimizer:
                     "THICK_FIRST_YEAR": 0.45,
                     "MEDIUM_FIRST_YEAR": 0.20
                 }
-                # Mode-dependent penetration of pack ice:
-                # Fastest penetrates dense chord, Safest circumvents, Balanced/Eco are intermediate
-                if mode.upper() == "FASTEST":
-                    sic = min(0.85, max(sic, 0.72 + 0.03 * abs(lat - (-63.0))))
-                elif mode.upper() == "SAFEST":
-                    sic = min(0.12, sic * 0.4)
-                elif mode.upper() == "ECO_FUEL":
-                    sic = min(0.32, max(sic, 0.25))
-                else: # BALANCED
-                    sic = min(0.48, max(sic, 0.38))
                 polaris_info = evaluate_imo_polaris_rio(ice_class=ice_class, ice_concentration=sic, ice_regimes=late_regime)
             else:
                 polaris_info = evaluate_imo_polaris_rio(ice_class=ice_class, ice_concentration=sic)

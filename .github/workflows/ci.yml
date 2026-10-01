@@ -11,8 +11,10 @@ jobs:
     name: Backend Test Suite & Quality Assurance
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Codebase
+      - name: Checkout Codebase (with Git LFS)
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -34,6 +36,10 @@ jobs:
       - name: Run Pytest Verification Suite
         run: |
           pytest backend/tests/test_models.py backend/tests/test_polar_geodesics.py backend/tests/test_robustness_and_safety.py -v --tb=short
+
+      - name: Recompute Scientific Evaluation & Benchmark Metrics
+        run: |
+          python evaluation/run_evaluation.py
 
       - name: Verify Model Persistence Baseline CI Gate
         run: |

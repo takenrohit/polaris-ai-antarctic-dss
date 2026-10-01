@@ -97,9 +97,13 @@ def evaluate_sea_ice_forecast() -> Dict[str, Any]:
         rmse_gain = round(((rmse_pers - rmse_model) / (rmse_pers + 1e-9)) * 100.0, 2)
         iiee_gain = round(((iiee_pers - iiee_model) / (iiee_pers + 1e-9)) * 100.0, 2)
 
+        raw_rmse = forecast_res["lead_time_evaluations"][t].get("raw_convlstm_rmse", rmse_model)
+
         horizon_results.append({
             "lead_day": t + 1,
-            "convlstm_rmse": round(rmse_model, 4),
+            "convlstm_rmse": round(rmse_model, 4), # operational hybrid model (maintains CI gate schema)
+            "hybrid_rmse": round(rmse_model, 4),
+            "raw_convlstm_rmse": round(raw_rmse, 4),
             "persistence_rmse": round(rmse_pers, 4),
             "climatology_rmse": round(rmse_clim, 4),
             "convlstm_mae": round(mae_model, 4),
@@ -113,20 +117,26 @@ def evaluate_sea_ice_forecast() -> Dict[str, Any]:
         })
 
     avg_model_rmse = round(float(np.mean([r["convlstm_rmse"] for r in horizon_results])), 4)
+    avg_raw_rmse = round(float(np.mean([r["raw_convlstm_rmse"] for r in horizon_results])), 4)
     avg_pers_rmse = round(float(np.mean([r["persistence_rmse"] for r in horizon_results])), 4)
     avg_rmse_gain = round(((avg_pers_rmse - avg_model_rmse) / (avg_pers_rmse + 1e-9)) * 100.0, 2)
     avg_iiee_gain = round(float(np.mean([r["iiee_reduction_pct"] for r in horizon_results])), 2)
 
-    print(f"  -> ConvLSTM Avg RMSE: {avg_model_rmse} vs Persistence Avg RMSE: {avg_pers_rmse} ({avg_rmse_gain:+.2f}%)")
+    print(f"  -> Hybrid Forecaster Avg RMSE: {avg_model_rmse} vs Persistence Avg RMSE: {avg_pers_rmse} ({avg_rmse_gain:+.2f}%)")
+    print(f"  -> Standalone Raw ConvLSTM Avg RMSE: {avg_raw_rmse} (spatial diffusion over 7 lead days)")
     print(f"  -> Average IIEE Reduction: {avg_iiee_gain:+.2f}%")
 
     return {
         "dataset": "NOAA/NSIDC G02135 + ERA5 (Strictly Held-Out Window: Days 15-21)",
         "summary": {
-            "avg_convlstm_rmse": avg_model_rmse,
+            "avg_convlstm_rmse": avg_model_rmse, # backward compat
+            "avg_hybrid_rmse": avg_model_rmse,
+            "avg_raw_convlstm_rmse": avg_raw_rmse,
             "avg_persistence_rmse": avg_pers_rmse,
             "avg_rmse_improvement_pct": avg_rmse_gain,
-            "avg_iiee_reduction_pct": avg_iiee_gain
+            "avg_iiee_reduction_pct": avg_iiee_gain,
+            "model_architecture": "Hybrid Physics-Guided Forecaster: Spatiotemporal ConvLSTM Residuals + Kinematic Wind Advection + Thermodynamic Melt Trend (Empirical Horizon Blending Schedule alpha(tau))",
+            "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0463 vs Persistence 0.0353). The operational gain (+2.27% mean, +4.70% Day 7) is achieved by the physics-guided hybrid blending framework. The alpha schedule was empirically calibrated on the validation window."
         },
         "lead_time_metrics": horizon_results
     }
@@ -209,28 +219,28 @@ def evaluate_iceberg_drift() -> Dict[str, Any]:
                 lon_dr = lon1 + (dist_dr_km * math.sin(rad_dr)) / (111.139 * lon_scale)
                 err_dr_km = haversine_nm(lat_dr, lon_dr, lat2, lon2) * 1.852
 
-                # Physics momentum drift with atmospheric & hydrodynamic forcings
-                u_w, v_w = environmental_data_provider.get_wind(lat1, lon1, 24)
-                u_c, v_c = environmental_data_provider.get_ocean_current(lat1, lon1, 24)
+                # Real 2D Hydrodynamic Momentum Drift Engine
+                berg_dict = {
+                    "id": berg_id,
+                    "name": berg_id,
+                    "lat": lat1,
+                    "lon": lon1,
+                    "drift_speed_knots": v_knots,
+                    "drift_bearing_deg": b_deg,
+                    "length_km": 20.0,
+                    "width_km": 10.0,
+                    "thickness_m": 250.0
+                }
+                traj_res = iceberg_drift_engine.predict_trajectory(
+                    berg_dict,
+                    forecast_hours=int(math.ceil(dt2_h)),
+                    time_step_hours=max(1, int(round(dt2_h / 24.0))) if dt2_h > 24 else 1
+                )
+                pred_pt = min(traj_res["trajectory"], key=lambda p: abs(p["hour"] - dt2_h))
+                err_phys_km = haversine_nm(pred_pt["lat"], pred_pt["lon"], lat2, lon2) * 1.852
 
-                u_init = v_knots * 0.514444 * math.sin(math.radians(b_deg))
-                v_init = v_knots * 0.514444 * math.cos(math.radians(b_deg))
-
-                v_eq_x = u_c + 0.02 * u_w + 0.005 * v_w
-                v_eq_y = v_c + 0.02 * v_w - 0.005 * u_w
-
-                w_phys = min(0.50, dt2_h / 96.0)
-                u_mean = (1.0 - w_phys) * u_init + w_phys * v_eq_x
-                v_mean = (1.0 - w_phys) * v_init + w_phys * v_eq_y
-
-                phys_dist_x = (u_mean * dt2_h * 3600) / 1000.0
-                phys_dist_y = (v_mean * dt2_h * 3600) / 1000.0
-                lat_phys = lat1 + phys_dist_y / 111.139
-                lon_phys = lon1 + phys_dist_x / (111.139 * lon_scale)
-                err_phys_km = haversine_nm(lat_phys, lon_phys, lat2, lon2) * 1.852
-
-                # Cone calibration (p10-p90 envelope)
-                cone_radius_km = max(18.0, 12.0 + math.sqrt(u_w**2 + v_w**2) * 1.5 + dt2_h * 0.35)
+                # Cone calibration (p10-p90 envelope) from real drift engine
+                cone_radius_km = pred_pt["uncertainty_radius_km"]
                 in_cone = bool(err_phys_km <= cone_radius_km)
                 if in_cone:
                     cone_hits += 1
@@ -428,34 +438,35 @@ def generate_markdown_report(
 
 ## 1. Sea-Ice Concentration Forecasting Benchmarks
 
-Evaluated against the standard Persistence Baseline and Climatology across 1-to-7 day lead times on held-out satellite observations:
+Evaluated against the standard Persistence Baseline and Climatology across 1-to-7 day lead times on held-out satellite observations (Days 15–21, January 2026):
 
-| Lead Day | ConvLSTM RMSE | Persistence RMSE | Climatology RMSE | ConvLSTM IIEE ($km^2$) | Persistence IIEE ($km^2$) | IIEE Gain | RMSE Gain |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| Lead Day | Hybrid Model RMSE | Raw ConvLSTM RMSE | Persistence RMSE | Climatology RMSE | Hybrid IIEE ($km^2$) | Persistence IIEE ($km^2$) | IIEE Gain | Hybrid RMSE Gain |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 """
     for r in sea_ice_res["lead_time_metrics"]:
-        md += f"| Day {r['lead_day']} | **{r['convlstm_rmse']}** | {r['persistence_rmse']} | {r['climatology_rmse']} | **{r['convlstm_iiee_km2']:,.0f}** | {r['persistence_iiee_km2']:,.0f} | **{r['iiee_reduction_pct']:+.2f}%** | {r['rmse_improvement_pct']:+.2f}% |\n"
+        md += f"| Day {r['lead_day']} | **{r['convlstm_rmse']}** | {r.get('raw_convlstm_rmse', r['convlstm_rmse'])} | {r['persistence_rmse']} | {r['climatology_rmse']} | **{r['convlstm_iiee_km2']:,.0f}** | {r['persistence_iiee_km2']:,.0f} | **{r['iiee_reduction_pct']:+.2f}%** | {r['rmse_improvement_pct']:+.2f}% |\n"
 
     md += f"""
-**Summary Findings:**
-- Average ConvLSTM RMSE: **{sea_ice_res['summary']['avg_convlstm_rmse']}** (vs Persistence: {sea_ice_res['summary']['avg_persistence_rmse']}, **{sea_ice_res['summary']['avg_rmse_improvement_pct']:+.2f}%**)
-- Average Integrated Ice Edge Error (IIEE) Reduction: **{sea_ice_res['summary']['avg_iiee_reduction_pct']:+.2f}%**
-- **Operational Reality:** The model matches persistence at Day 1 and outperforms persistence at Days 5–7 as thermodynamic melt and advection dynamics accumulate.
+**Scientific Transparency & Architecture Findings:**
+- **Hybrid Forecaster Avg RMSE:** **{sea_ice_res['summary']['avg_convlstm_rmse']}** (vs Persistence: {sea_ice_res['summary']['avg_persistence_rmse']}, **{sea_ice_res['summary']['avg_rmse_improvement_pct']:+.2f}%**)
+- **Standalone Raw ConvLSTM Avg RMSE:** **{sea_ice_res['summary'].get('avg_raw_convlstm_rmse', 'N/A')}**
+- **Average Integrated Ice Edge Error (IIEE) Reduction:** **{sea_ice_res['summary']['avg_iiee_reduction_pct']:+.2f}%**
+- **Model Mechanics & Operational Reality:** Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\\alpha(\\tau) = \\min(0.35, 0.018 \\cdot (\\tau - 1)^{{1.5}})$. Note: The $\\alpha(\\tau)$ schedule was calibrated on the validation window; validation across broader seasonal splits is recommended.
 
 ---
 
 ## 2. Multi-Berg, Multi-Window Iceberg Drift Validation
 
-Evaluated across **{drift_res['icebergs_evaluated_count']} icebergs** and **{drift_res['total_windows_evaluated']} multi-day windows** from the BYU/USNIC satellite database using per-berg estimated drift velocity:
+Evaluated across **{drift_res['icebergs_evaluated_count']} icebergs** and **{drift_res['total_windows_evaluated']} multi-day windows** from the BYU/USNIC satellite database using per-berg estimated drift velocity directly executed via the real 2D hydrodynamic momentum drift engine:
 
 ### Error Distributions & Envelope Calibration:
-| Metric | Physics Model (km) | Linear Dead-Reckoning (km) |
+| Metric | 2D Momentum Physics Model (Real Drift Engine) (km) | Linear Dead-Reckoning (km) |
 |---|:---:|:---:|
 | **Mean Error** | **{drift_res['physics_error_distribution']['mean_km']} km** | {drift_res['dead_reckoning_error_distribution']['mean_km']} km |
 | **Median Error** | **{drift_res['physics_error_distribution']['median_km']} km** | {drift_res['dead_reckoning_error_distribution']['median_km']} km |
-| **25th Percentile (p25)** | **{drift_res['physics_error_distribution']['p25_km']} km** | {drift_res['dead_reckoning_error_distribution']['p25_km']} km |
-| **75th Percentile (p75)** | **{drift_res['physics_error_distribution']['p75_km']} km** | {drift_res['dead_reckoning_error_distribution']['p75_km']} km |
-| **90th Percentile (p90)** | **{drift_res['physics_error_distribution']['p90_km']} km** | {drift_res['dead_reckoning_error_distribution']['p90_km']} km |
+| **25th Percentile ($p_{{25}}$)** | **{drift_res['physics_error_distribution']['p25_km']} km** | {drift_res['dead_reckoning_error_distribution']['p25_km']} km |
+| **75th Percentile ($p_{{75}}$)** | **{drift_res['physics_error_distribution']['p75_km']} km** | {drift_res['dead_reckoning_error_distribution']['p75_km']} km |
+| **90th Percentile ($p_{{90}}$)** | **{drift_res['physics_error_distribution']['p90_km']} km** | {drift_res['dead_reckoning_error_distribution']['p90_km']} km |
 
 - **Uncertainty Cone Calibration ($P_{{10}}$–$P_{{90}}$ coverage):** **{drift_res['cone_calibration_pct']}%** of ground-truth satellite fixes fall inside the projected ensemble envelope.
 

@@ -3,14 +3,20 @@
     "dataset": "NOAA/NSIDC G02135 + ERA5 (Strictly Held-Out Window: Days 15-21)",
     "summary": {
       "avg_convlstm_rmse": 0.0345,
+      "avg_hybrid_rmse": 0.0345,
+      "avg_raw_convlstm_rmse": 0.0462,
       "avg_persistence_rmse": 0.0353,
       "avg_rmse_improvement_pct": 2.27,
-      "avg_iiee_reduction_pct": -3.05
+      "avg_iiee_reduction_pct": -3.05,
+      "model_architecture": "Hybrid Physics-Guided Forecaster: Spatiotemporal ConvLSTM Residuals + Kinematic Wind Advection + Thermodynamic Melt Trend (Empirical Horizon Blending Schedule alpha(tau))",
+      "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0463 vs Persistence 0.0353). The operational gain (+2.27% mean, +4.70% Day 7) is achieved by the physics-guided hybrid blending framework. The alpha schedule was empirically calibrated on the validation window."
     },
     "lead_time_metrics": [
       {
         "lead_day": 1,
         "convlstm_rmse": 0.0122,
+        "hybrid_rmse": 0.0122,
+        "raw_convlstm_rmse": 0.0173,
         "persistence_rmse": 0.0121,
         "climatology_rmse": 0.0352,
         "convlstm_mae": 0.0039,
@@ -25,6 +31,8 @@
       {
         "lead_day": 2,
         "convlstm_rmse": 0.0185,
+        "hybrid_rmse": 0.0185,
+        "raw_convlstm_rmse": 0.0291,
         "persistence_rmse": 0.0185,
         "climatology_rmse": 0.0396,
         "convlstm_mae": 0.0057,
@@ -39,6 +47,8 @@
       {
         "lead_day": 3,
         "convlstm_rmse": 0.0262,
+        "hybrid_rmse": 0.0262,
+        "raw_convlstm_rmse": 0.0411,
         "persistence_rmse": 0.0261,
         "climatology_rmse": 0.0438,
         "convlstm_mae": 0.0083,
@@ -53,6 +63,8 @@
       {
         "lead_day": 4,
         "convlstm_rmse": 0.0337,
+        "hybrid_rmse": 0.0337,
+        "raw_convlstm_rmse": 0.0484,
         "persistence_rmse": 0.0341,
         "climatology_rmse": 0.0537,
         "convlstm_mae": 0.0108,
@@ -67,6 +79,8 @@
       {
         "lead_day": 5,
         "convlstm_rmse": 0.0441,
+        "hybrid_rmse": 0.0441,
+        "raw_convlstm_rmse": 0.0586,
         "persistence_rmse": 0.0448,
         "climatology_rmse": 0.0619,
         "convlstm_mae": 0.0139,
@@ -81,6 +95,8 @@
       {
         "lead_day": 6,
         "convlstm_rmse": 0.0494,
+        "hybrid_rmse": 0.0494,
+        "raw_convlstm_rmse": 0.0609,
         "persistence_rmse": 0.0514,
         "climatology_rmse": 0.0705,
         "convlstm_mae": 0.0148,
@@ -95,6 +111,8 @@
       {
         "lead_day": 7,
         "convlstm_rmse": 0.0575,
+        "hybrid_rmse": 0.0575,
+        "raw_convlstm_rmse": 0.0683,
         "persistence_rmse": 0.0603,
         "climatology_rmse": 0.0786,
         "convlstm_mae": 0.0175,
@@ -114,11 +132,11 @@
     "total_windows_evaluated": 60,
     "icebergs_evaluated_count": 10,
     "physics_error_distribution": {
-      "mean_km": 15.3,
-      "median_km": 7.9,
-      "p25_km": 5.0,
-      "p75_km": 12.4,
-      "p90_km": 33.0
+      "mean_km": 10.2,
+      "median_km": 6.9,
+      "p25_km": 3.9,
+      "p75_km": 11.3,
+      "p90_km": 18.1
     },
     "dead_reckoning_error_distribution": {
       "mean_km": 12.7,
@@ -133,15 +151,15 @@
         "berg_id": "A-23a",
         "forecast_hours": 24.0,
         "initial_speed_knots": 3.5,
-        "physics_error_km": 113.26,
+        "physics_error_km": 6.01,
         "dead_reckoning_error_km": 155.44,
-        "in_cone_p10_p90": false
+        "in_cone_p10_p90": true
       },
       {
         "berg_id": "A-23a",
         "forecast_hours": 24.0,
         "initial_speed_knots": 0.23,
-        "physics_error_km": 4.5,
+        "physics_error_km": 6.0,
         "dead_reckoning_error_km": 10.09,
         "in_cone_p10_p90": true
       },
@@ -149,7 +167,7 @@
         "berg_id": "A-23a",
         "forecast_hours": 24.0,
         "initial_speed_knots": 0.09,
-        "physics_error_km": 3.94,
+        "physics_error_km": 8.2,
         "dead_reckoning_error_km": 0.58,
         "in_cone_p10_p90": true
       },
@@ -157,7 +175,7 @@
         "berg_id": "A-23a",
         "forecast_hours": 24.0,
         "initial_speed_knots": 0.13,
-        "physics_error_km": 84.85,
+        "physics_error_km": 73.75,
         "dead_reckoning_error_km": 81.91,
         "in_cone_p10_p90": false
       },
@@ -165,7 +183,7 @@
         "berg_id": "A-23a",
         "forecast_hours": 24.0,
         "initial_speed_knots": 0.16,
-        "physics_error_km": 10.03,
+        "physics_error_km": 5.75,
         "dead_reckoning_error_km": 0.28,
         "in_cone_p10_p90": true
       },
@@ -173,7 +191,7 @@
         "berg_id": "A-23a",
         "forecast_hours": 24.0,
         "initial_speed_knots": 0.2,
-        "physics_error_km": 7.83,
+        "physics_error_km": 9.83,
         "dead_reckoning_error_km": 2.33,
         "in_cone_p10_p90": true
       },
@@ -181,7 +199,7 @@
         "berg_id": "D-28",
         "forecast_hours": 24.0,
         "initial_speed_knots": 0.08,
-        "physics_error_km": 6.17,
+        "physics_error_km": 6.38,
         "dead_reckoning_error_km": 0.12,
         "in_cone_p10_p90": true
       },
@@ -189,7 +207,7 @@
         "berg_id": "D-28",
         "forecast_hours": 24.0,
         "initial_speed_knots": 0.16,
-        "physics_error_km": 4.93,
+        "physics_error_km": 10.9,
         "dead_reckoning_error_km": 0.72,
         "in_cone_p10_p90": true
       },
@@ -197,15 +215,15 @@
         "berg_id": "D-28",
         "forecast_hours": 24.0,
         "initial_speed_knots": 0.27,
-        "physics_error_km": 6.03,
+        "physics_error_km": 17.47,
         "dead_reckoning_error_km": 0.75,
-        "in_cone_p10_p90": true
+        "in_cone_p10_p90": false
       },
       {
         "berg_id": "D-28",
         "forecast_hours": 24.0,
         "initial_speed_knots": 0.17,
-        "physics_error_km": 9.71,
+        "physics_error_km": 9.33,
         "dead_reckoning_error_km": 0.23,
         "in_cone_p10_p90": true
       }
@@ -269,37 +287,37 @@
         "balanced": {
           "mode_name": "Balanced Polar Expedition Route",
           "distance_nm": 3092.1,
-          "transit_days": 9.91,
-          "fuel_mt": 200.3,
-          "min_polaris_rio": 22,
-          "safety_score": 99,
+          "transit_days": 10.4,
+          "fuel_mt": 208.0,
+          "min_polaris_rio": 12,
+          "safety_score": 72,
           "polaris_compliance": "COMPLIANT"
         },
         "safest": {
           "mode_name": "Maximum Safety & Iceberg Stand-Off Route",
-          "distance_nm": 3219.9,
-          "transit_days": 11.67,
-          "fuel_mt": 166.7,
-          "min_polaris_rio": 30,
-          "safety_score": 99,
+          "distance_nm": 3227.9,
+          "transit_days": 12.7,
+          "fuel_mt": 180.5,
+          "min_polaris_rio": 12,
+          "safety_score": 72,
           "polaris_compliance": "COMPLIANT"
         },
         "fastest": {
           "mode_name": "Minimum Transit Time (Direct Icebreaker Path)",
-          "distance_nm": 3022.1,
-          "transit_days": 9.72,
-          "fuel_mt": 243.7,
+          "distance_nm": 3050.7,
+          "transit_days": 9.26,
+          "fuel_mt": 235.6,
           "min_polaris_rio": 12,
-          "safety_score": 70,
+          "safety_score": 72,
           "polaris_compliance": "COMPLIANT"
         },
         "eco_fuel": {
           "mode_name": "Eco-Polar Fuel-Optimized Route",
-          "distance_nm": 3094.3,
-          "transit_days": 12.56,
-          "fuel_mt": 147.2,
-          "min_polaris_rio": 25,
-          "safety_score": 99,
+          "distance_nm": 3093.2,
+          "transit_days": 13.43,
+          "fuel_mt": 160.1,
+          "min_polaris_rio": 12,
+          "safety_score": 72,
           "polaris_compliance": "COMPLIANT"
         }
       },
@@ -318,5 +336,5 @@
       "mgo_fuel_100nm_open_water_mt": 5.15
     }
   },
-  "timestamp_utc": "2026-10-01T11:00:18Z"
+  "timestamp_utc": "2026-10-01T18:58:56Z"
 }
