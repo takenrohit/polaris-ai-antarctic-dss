@@ -41,4 +41,4 @@
 - Beyond 80°S, longitude meridians converge rapidly. While POLARIS-AI utilizes spherical Haversine and WGS84 geodesic calculations with antimeridian wrapping, standard Mercator bridge chart projections suffer from extreme scale distortion. Bridge displays must utilize Polar Stereographic or Gnomonic projections south of 60°S.
 
 ### 3. Fail-Safe Quality Gate
-- If observational data latency exceeds 72 hours or satellite concentration feeds drop out, the system automatically transitions into a `DEGRADED` or `DO_NOT_USE_FOR_NAVIGATION` operational state.
+- If observational data latency exceeds **48 hours** or satellite concentration feeds drop out, the system automatically trips the fail-safe gate, transitioning into a `DO_NOT_USE_FOR_NAVIGATION` operational state (`fail_safe_gate_tripped = True`, `is_safe_for_decision_support = False`).

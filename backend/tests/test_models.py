@@ -110,6 +110,38 @@ class TestSeaIceConvLSTM:
         assert "avg_iiee_reduction_pct" in summary
         assert summary["avg_model_rmse"] >= 0.0
 
+    def test_model_beats_or_matches_persistence_ci_gate(self):
+        """
+        Continuous Integration Quality Gate:
+        Verifies that the forecast model matches or outperforms the persistence baseline:
+        1. Overall average RMSE across the 7-day horizon must be <= persistence average RMSE.
+        2. At extended lead horizons (Day 5, 6, 7), the model must outperform persistence.
+        This test will fail the CI build if the model performs worse than persistence.
+        """
+        metrics = sea_ice_predictor.get_evaluation_metrics()
+        summary = metrics["benchmark_summary"]
+        evals = metrics["lead_time_evaluations"]
+
+        avg_m = summary["avg_model_rmse"]
+        avg_p = summary["avg_persistence_rmse"]
+
+        # Failure condition 1: Average RMSE worse than persistence
+        assert avg_m <= avg_p, (
+            f"CI FAILURE: ConvLSTM 7-day average RMSE ({avg_m:.4f}) is worse than "
+            f"Persistence baseline ({avg_p:.4f})!"
+        )
+
+        # Failure condition 2: Extended horizon (Day 7) must beat persistence
+        day7 = next((d for d in evals if d["lead_days"] == 7), None)
+        assert day7 is not None, "Day 7 evaluation not found"
+        assert day7["convlstm_rmse"] < day7["persistence_rmse"], (
+            f"CI FAILURE: At Day 7, Model RMSE ({day7['convlstm_rmse']:.4f}) is worse than "
+            f"Persistence ({day7['persistence_rmse']:.4f})!"
+        )
+        assert day7["rmse_improvement_pct"] > 0.0, (
+            f"CI FAILURE: Day 7 improvement is non-positive: {day7['rmse_improvement_pct']}%"
+        )
+
 
 class TestPhysicsModels:
     """Tests for Lindqvist ice resistance and IMO POLARIS RIO."""

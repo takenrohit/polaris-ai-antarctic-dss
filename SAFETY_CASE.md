@@ -34,9 +34,9 @@ To maintain maritime safety integrity, POLARIS-AI incorporates an automated Qual
 
 | System State | Trigger Condition | Operational Action |
 |---|---|---|
-| **OPERATIONAL** | Fresh satellite SIC (< 48h latency), valid ERA5 winds, valid ocean currents | Full 4D A* optimization and multi-corridor Pareto outputs active |
-| **DEGRADED** | Observation latency 48h to 72h, or missing wind reanalysis | System continues routing with increased safety buffers (+50% standoff) and alerts the bridge of data aging |
-| **DO NOT USE FOR NAVIGATION** | Satellite SIC feed absent, corrupted NetCDF datastore, or invalid vessel inputs | Route generation is locked; prominent bridge warning displayed: *"CRITICAL DATA FAULT: DO NOT USE FOR POLAR NAVIGATION"* |
+| **OPERATIONAL** | Fresh satellite SIC (< 24h latency), valid ERA5 winds, valid ocean currents | Full 4D A* optimization and multi-corridor Pareto outputs active; fail-safe gate clear |
+| **DEGRADED** | Observation latency 24h to 48h, or missing wind/current reanalysis | System continues routing with increased caution flags and alerts the bridge of data aging |
+| **DO NOT USE FOR NAVIGATION** | Observation latency > 48h, satellite SIC feed absent, corrupted NetCDF datastore, or invalid vessel inputs | Fail-safe gate tripped (`fail_safe_gate_tripped = True`); prominent bridge warning displayed: *"CRITICAL DATA FAULT: DO NOT USE FOR POLAR NAVIGATION"* |
 
 ---
 

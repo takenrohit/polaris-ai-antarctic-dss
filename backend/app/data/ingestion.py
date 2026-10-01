@@ -297,3 +297,66 @@ class EnvironmentalDataProvider:
 
 # Global singleton instance
 environmental_data_provider = EnvironmentalDataProvider()
+
+
+class Sentinel1SARIngestionStub:
+    """
+    Ingestion and preprocessing stub for Copernicus Sentinel-1 Extra-Wide (EW) Swath
+    SAR Level-1 Ground Range Detected (GRD) products.
+    Operates at 40m spatial resolution in polar stereographic projection (EPSG:3412).
+    """
+    def __init__(self):
+        self.sensor_name = "Copernicus Sentinel-1 SAR (C-band 5.405 GHz)"
+        self.polarizations = ["HH", "HV"]
+        self.nominal_resolution_m = 40.0
+        self.projection = "EPSG:3412"
+
+    def ingest_granule(self, granule_id: str, bbox: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
+        """Ingests and validates a Sentinel-1 SAR granule over Antarctic coastal waters."""
+        default_bbox = bbox or {"min_lat": -70.5, "max_lat": -68.0, "min_lon": 74.0, "max_lon": 78.0}
+        return {
+            "granule_id": granule_id,
+            "sensor": self.sensor_name,
+            "status": "INGESTED_AND_CALIBRATED",
+            "polarization": "HH+HV",
+            "resolution_m": self.nominal_resolution_m,
+            "projection": self.projection,
+            "bounding_box": default_bbox,
+            "sea_ice_edge_detection": "ACTIVE",
+            "iceberg_targets_detected": 14,
+            "calibrated_sigma0_db": {"mean_ice": -14.2, "mean_open_water": -24.8},
+            "ingestion_timestamp_utc": "2026-01-21T06:30:00Z",
+            "fail_safe_freshness_hours": 3.5
+        }
+
+
+class AMSR2MicrowaveIngestionStub:
+    """
+    Ingestion and preprocessing stub for JAXA GCOM-W1 AMSR2 Level-3 6.25km daily
+    Sea Ice Concentration products.
+    """
+    def __init__(self):
+        self.sensor_name = "JAXA GCOM-W1 AMSR2 (Advanced Microwave Scanning Radiometer 2)"
+        self.channels = ["89.0 GHz (V/H)", "36.5 GHz (V/H)", "18.7 GHz (V/H)"]
+        self.nominal_resolution_km = 6.25
+        self.grid_system = "Southern Polar Stereographic 6.25km"
+
+    def ingest_daily_product(self, date_str: str = "2026-01-21", sector: str = "Prydz_Bay") -> Dict[str, Any]:
+        """Ingests and validates daily AMSR2 high-frequency sea ice concentration product."""
+        return {
+            "product_id": f"AMSR2_L3_SIC_6.25km_{date_str}_{sector}",
+            "sensor": self.sensor_name,
+            "status": "INGESTED_AND_VERIFIED",
+            "resolution_km": self.nominal_resolution_km,
+            "sector": sector,
+            "channels_processed": self.channels,
+            "algorithm": "ASI (Artist Sea Ice) / NASA Team 2 Hybrid",
+            "mean_concentration": 0.384,
+            "max_concentration": 0.942,
+            "ingestion_timestamp_utc": f"{date_str}T04:15:00Z",
+            "fail_safe_freshness_hours": 5.2
+        }
+
+
+sentinel1_stub = Sentinel1SARIngestionStub()
+amsr2_stub = AMSR2MicrowaveIngestionStub()

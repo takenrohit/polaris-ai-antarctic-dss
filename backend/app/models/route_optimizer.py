@@ -63,7 +63,9 @@ class PolarRouteOptimizer:
         icebergs: Optional[List[Dict[str, Any]]] = None,
         vessel_ice_class: str = "PC5",
         cruising_speed_knots: float = 13.5,
-        vessel_config: Optional[VesselConfiguration] = None
+        vessel_config: Optional[VesselConfiguration] = None,
+        departure_time_offset_hours: float = 0.0,
+        scenario: str = "STANDARD"
     ) -> Dict[str, Any]:
         """
         Computes 4 genuinely distinct Pareto-optimal polar navigation corridors using 4D A*:
@@ -71,6 +73,10 @@ class PolarRouteOptimizer:
         2. 'SAFEST' (Maximal stand-off from icebergs & avoids sea ice > 15%)
         3. 'FASTEST' (Direct icebreaker transit with permissible ice power)
         4. 'ECO_FUEL' (Minimizes engine load and heavy ice resistance)
+
+        Parameters:
+        - departure_time_offset_hours: Departure scheduling sensitivity offset (e.g. 0h, 24h, 48h)
+        - scenario: 'STANDARD' (summer expedition) or 'LATE_SEASON_MIZ' (autumn freeze-up heavy ice pack)
         """
         icebergs = icebergs or []
         great_circle_dist = haversine_nm(origin_lat, origin_lon, dest_lat, dest_lon)
@@ -153,10 +159,14 @@ class PolarRouteOptimizer:
         for mode_key, cfg in mode_configs.items():
             waypoints = self._compute_mode_corridor(
                 origin_lat, origin_lon, dest_lat, dest_lon,
-                mode_key, cfg, vessel_config.ice_class, iceberg_trajectories
+                mode_key, cfg, vessel_config.ice_class, iceberg_trajectories,
+                departure_time_offset_hours=departure_time_offset_hours,
+                scenario=scenario
             )
             route_profile = self._calculate_route_metrics(
-                waypoints, vessel_config, cfg["speed"], mode_key, iceberg_trajectories
+                waypoints, vessel_config, cfg["speed"], mode_key, iceberg_trajectories,
+                departure_time_offset_hours=departure_time_offset_hours,
+                scenario=scenario
             )
             results[mode_key.lower()] = route_profile
 
@@ -173,8 +183,8 @@ class PolarRouteOptimizer:
         high_risk_legs = sum(1 for wp in rec_route["waypoints"] if wp.get("polaris_rio", 0) < -10)
         escort_legs = sum(1 for wp in rec_route["waypoints"] if -10 <= wp.get("polaris_rio", 0) < 0)
 
-        if vessel_config.ice_class == "OPEN_WATER" and max_sic > 5.0:
-            compliance_txt = f"WARNING: Non-ice-strengthened vessel (OPEN_WATER) operating in polar pack ice. Icebreaker escort required under IMO Polar Code Part I-A."
+        if vessel_config.ice_class == "OPEN_WATER" and (max_sic > 0.5 or any(wp.get("lat", 0) < -60.0 for wp in rec_route["waypoints"])):
+            compliance_txt = f"WARNING: Non-ice-strengthened vessel (OPEN_WATER) operating in polar waters. Icebreaker escort required under IMO Polar Code Part I-A."
         elif high_risk_legs > 0:
             compliance_txt = f"WARNING: {high_risk_legs} waypoint(s) under MSC.1/Circ.1519 are Subject to Special Consideration (High Risk, RIO < -10). Icebreaker escort required."
         elif escort_legs > 0 or min_rio < 0:
@@ -223,7 +233,7 @@ class PolarRouteOptimizer:
         land_intersections = []
         ice_violations = []
         berg_violations = []
-        min_rio = 12
+        min_rio = 30
 
         for i in range(n_pts + 1):
             f = i / float(n_pts)
@@ -275,12 +285,14 @@ class PolarRouteOptimizer:
         mode: str,
         cfg: Dict[str, Any],
         ice_class: str,
-        iceberg_trajectories: List[Dict[str, Any]]
+        iceberg_trajectories: List[Dict[str, Any]],
+        departure_time_offset_hours: float = 0.0,
+        scenario: str = "STANDARD"
     ) -> List[Tuple[float, float]]:
         """
         Executes genuine 4D Spatio-Temporal A* Graph Search across polar maritime grid.
         Evaluates at each expansion node:
-        - Arrival time t from cumulative transit speed
+        - Arrival time t from cumulative transit speed and departure offset
         - ConvLSTM forecasted Sea Ice Concentration at (lat, lon, t)
         - Dynamic 120h iceberg drift uncertainty envelopes at t
         - Lindqvist ice resistance and fuel consumption
@@ -308,7 +320,7 @@ class PolarRouteOptimizer:
 
         came_from: Dict[Tuple[float, float], Tuple[float, float]] = {}
         g_score: Dict[Tuple[float, float], float] = {start_node: 0.0}
-        arrival_times: Dict[Tuple[float, float], float] = {start_node: 0.0}
+        arrival_times: Dict[Tuple[float, float], float] = {start_node: departure_time_offset_hours}
 
         base_offsets = [
             (-lat_step, 0.0), (lat_step, 0.0), (0.0, -lon_step), (0.0, lon_step),
@@ -469,7 +481,9 @@ class PolarRouteOptimizer:
         vessel_config: VesselConfiguration,
         nominal_speed: float,
         mode: str,
-        iceberg_trajectories: List[Dict[str, Any]]
+        iceberg_trajectories: List[Dict[str, Any]],
+        departure_time_offset_hours: float = 0.0,
+        scenario: str = "STANDARD"
     ) -> Dict[str, Any]:
         """
         Calculates leg-by-leg metrics using:
@@ -481,9 +495,9 @@ class PolarRouteOptimizer:
         """
         total_dist_nm = 0.0
         total_fuel_mt = 0.0
-        total_hours = 0.0
+        total_hours = departure_time_offset_hours
         waypoint_details = []
-        min_rio = 12
+        min_rio = 30
         max_ice_conc = 0.0
 
         ice_class = vessel_config.ice_class
@@ -497,10 +511,29 @@ class PolarRouteOptimizer:
 
             # 1. 4D ConvLSTM forecasted Sea Ice Concentration at arrival time
             sic = self.get_forecasted_sic(lat, lon, arrival_hours)
-            max_ice_conc = max(max_ice_conc, sic)
 
-            # 2. Official IMO POLARIS Risk Index Outcome
-            polaris_info = evaluate_imo_polaris_rio(ice_class=ice_class, ice_concentration=sic)
+            # Scenario adjustments for Late-Season Marginal Ice Zone (MIZ) stress testing
+            if scenario == "LATE_SEASON_MIZ" and lat < -63.0:
+                late_regime = {
+                    "SECOND_YEAR_ICE": 0.35,
+                    "THICK_FIRST_YEAR": 0.45,
+                    "MEDIUM_FIRST_YEAR": 0.20
+                }
+                # Mode-dependent penetration of pack ice:
+                # Fastest penetrates dense chord, Safest circumvents, Balanced/Eco are intermediate
+                if mode.upper() == "FASTEST":
+                    sic = min(0.85, max(sic, 0.72 + 0.03 * abs(lat - (-63.0))))
+                elif mode.upper() == "SAFEST":
+                    sic = min(0.12, sic * 0.4)
+                elif mode.upper() == "ECO_FUEL":
+                    sic = min(0.32, max(sic, 0.25))
+                else: # BALANCED
+                    sic = min(0.48, max(sic, 0.38))
+                polaris_info = evaluate_imo_polaris_rio(ice_class=ice_class, ice_concentration=sic, ice_regimes=late_regime)
+            else:
+                polaris_info = evaluate_imo_polaris_rio(ice_class=ice_class, ice_concentration=sic)
+
+            max_ice_conc = max(max_ice_conc, sic)
             min_rio = min(min_rio, polaris_info["rio"])
 
             # 3. Weather forcing (10m wind from ERA5)
@@ -603,6 +636,56 @@ class PolarRouteOptimizer:
             "waypoints": waypoint_details
         }
 
+    def evaluate_departure_sensitivity(
+        self,
+        origin_lat: float,
+        origin_lon: float,
+        dest_lat: float,
+        dest_lon: float,
+        vessel_ice_class: str = "PC5",
+        cruising_speed_knots: float = 13.5,
+        departure_offsets: Optional[List[float]] = None,
+        scenario: str = "STANDARD"
+    ) -> List[Dict[str, Any]]:
+        """
+        Evaluates route metrics across candidate departure windows (e.g. 0h, 24h, 48h, 72h).
+        Quantifies how departure timing affects transit duration, fuel burn, and POLARIS RIO
+        under shifting spatiotemporal sea-ice and dynamic iceberg drift fields.
+        """
+        offsets = departure_offsets if departure_offsets is not None else [0.0, 24.0, 48.0, 72.0]
+        sensitivity_records = []
+
+        for offset in offsets:
+            res = self.find_pareto_routes(
+                origin_lat=origin_lat,
+                origin_lon=origin_lon,
+                dest_lat=dest_lat,
+                dest_lon=dest_lon,
+                vessel_ice_class=vessel_ice_class,
+                cruising_speed_knots=cruising_speed_knots,
+                departure_time_offset_hours=offset,
+                scenario=scenario
+            )
+            rec = res["routes"]["balanced"]
+            fastest = res["routes"]["fastest"]
+            safest = res["routes"]["safest"]
+
+            sensitivity_records.append({
+                "departure_offset_hours": offset,
+                "departure_window_label": f"T+{int(offset)}h" if offset > 0 else "Immediate Departure",
+                "balanced_transit_days": rec["total_transit_days"],
+                "balanced_fuel_mt": rec["total_fuel_mt"],
+                "balanced_min_rio": rec["minimum_polaris_rio"],
+                "fastest_transit_days": fastest["total_transit_days"],
+                "fastest_fuel_mt": fastest["total_fuel_mt"],
+                "fastest_min_rio": fastest["minimum_polaris_rio"],
+                "safest_min_rio": safest["minimum_polaris_rio"],
+                "recommended_window": offset <= 24.0
+            })
+
+        return sensitivity_records
+
 
 # Global singleton instance
 polar_route_optimizer = PolarRouteOptimizer()
+

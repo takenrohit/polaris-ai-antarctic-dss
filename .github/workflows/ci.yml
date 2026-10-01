@@ -35,6 +35,10 @@ jobs:
         run: |
           pytest backend/tests/test_models.py backend/tests/test_polar_geodesics.py backend/tests/test_robustness_and_safety.py -v --tb=short
 
+      - name: Verify Model Persistence Baseline CI Gate
+        run: |
+          python backend/scripts/verify_persistence_gate.py
+
   frontend-lint:
     name: Frontend Quality & Build Verification
     runs-on: ubuntu-latest

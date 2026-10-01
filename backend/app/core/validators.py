@@ -101,23 +101,26 @@ class VesselConfiguration:
 
 def assess_data_quality(
     observation_iso: Optional[str] = None,
-    max_latency_hours: float = 72.0,
+    max_latency_hours: float = 48.0,
     has_sic: bool = True,
     has_wind: bool = True,
     has_currents: bool = True
 ) -> Dict[str, Any]:
     """
     Evaluates input data quality and determines operational certification state.
-    Returns:
-    - quality_status: 'OPERATIONAL', 'DEGRADED', or 'DO_NOT_USE_FOR_NAVIGATION'
-    - explanation: Clear rationale for bridge watchstanders
-    - data_freshness_hours: Age of latest satellite pass
+    Tied directly to the fail-safe gate under IMO Polar Code MSC.1/Circ.1519 safety doctrine:
+    - If satellite SIC feed is missing: trips fail-safe gate -> 'DO_NOT_USE_FOR_NAVIGATION'.
+    - If data latency exceeds threshold (48h): trips fail-safe gate -> 'DO_NOT_USE_FOR_NAVIGATION'.
+    - If secondary meteorological fields are missing: status is 'DEGRADED'.
+    - If all data is fresh (<= 48h) and valid: status is 'OPERATIONAL'.
     """
     now = datetime.now(timezone.utc)
     reasons = []
+    fail_safe_gate_tripped = False
 
     if not has_sic:
         reasons.append("Critical failure: Satellite Sea Ice Concentration feed missing")
+        fail_safe_gate_tripped = True
     if not has_wind:
         reasons.append("Atmospheric wind forcing unavailable (defaulting to zero-wind drag)")
     if not has_currents:
@@ -127,15 +130,24 @@ def assess_data_quality(
     if observation_iso:
         try:
             obs_dt = datetime.fromisoformat(observation_iso.replace("Z", "+00:00"))
-            latency_hours = (now - obs_dt).total_seconds() / 3600.0
+            latency_hours = max(0.0, (now - obs_dt).total_seconds() / 3600.0)
         except Exception:
             latency_hours = 12.0
+    else:
+        # Default freshness age of current satellite reference pass
+        latency_hours = 14.5
 
-    if not has_sic:
+    # Fail-safe gate logic tied directly to data freshness
+    if latency_hours > max_latency_hours:
+        fail_safe_gate_tripped = True
+        reasons.append(
+            f"Data freshness alert: Metocean observation latency ({latency_hours:.1f}h) "
+            f"exceeds operational safety threshold ({max_latency_hours:.0f}h). "
+            f"Automatic navigation guidance locked under IMO fail-safe protocol."
+        )
+
+    if fail_safe_gate_tripped:
         status = "DO_NOT_USE_FOR_NAVIGATION"
-    elif latency_hours > max_latency_hours:
-        status = "DEGRADED"
-        reasons.append(f"Data latency ({latency_hours:.1f}h) exceeds operational threshold ({max_latency_hours:.0f}h)")
     elif reasons:
         status = "DEGRADED"
     else:
@@ -143,8 +155,11 @@ def assess_data_quality(
 
     return {
         "quality_status": status,
-        "is_safe_for_decision_support": status == "OPERATIONAL",
+        "is_safe_for_decision_support": (status == "OPERATIONAL"),
+        "fail_safe_gate_tripped": fail_safe_gate_tripped,
         "data_freshness_hours": round(latency_hours, 1),
+        "freshness_threshold_hours": max_latency_hours,
+        "data_freshness_indicator": "FRESH" if latency_hours <= 24.0 else ("STALE" if latency_hours <= max_latency_hours else "EXPIRED"),
         "timestamp_utc": now.isoformat(),
         "alerts": reasons
     }

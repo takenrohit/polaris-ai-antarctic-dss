@@ -2,214 +2,308 @@
   "sea_ice_forecasting": {
     "dataset": "NOAA/NSIDC G02135 + ERA5 (Strictly Held-Out Window: Days 15-21)",
     "summary": {
-      "avg_convlstm_rmse": 0.2896,
+      "avg_convlstm_rmse": 0.0345,
       "avg_persistence_rmse": 0.0353,
-      "avg_iiee_reduction_pct": 0.0
+      "avg_rmse_improvement_pct": 2.27,
+      "avg_iiee_reduction_pct": -3.05
     },
     "lead_time_metrics": [
       {
         "lead_day": 1,
-        "convlstm_rmse": 0.2956,
+        "convlstm_rmse": 0.0122,
         "persistence_rmse": 0.0121,
         "climatology_rmse": 0.0352,
-        "convlstm_mae": 0.2211,
+        "convlstm_mae": 0.0039,
         "persistence_mae": 0.0039,
-        "convlstm_iiee_km2": 215000.0,
+        "convlstm_iiee_km2": 2500.0,
         "persistence_iiee_km2": 2500.0,
         "iiee_reduction_pct": 0.0,
-        "rmse_improvement_pct": 0.0,
-        "convlstm_brier": 0.1435,
+        "rmse_improvement_pct": -0.48,
+        "convlstm_brier": 0.0283,
         "persistence_brier": 0.0283
       },
       {
         "lead_day": 2,
-        "convlstm_rmse": 0.2964,
+        "convlstm_rmse": 0.0185,
         "persistence_rmse": 0.0185,
         "climatology_rmse": 0.0396,
-        "convlstm_mae": 0.2212,
+        "convlstm_mae": 0.0057,
         "persistence_mae": 0.0056,
-        "convlstm_iiee_km2": 214375.0,
+        "convlstm_iiee_km2": 3125.0,
         "persistence_iiee_km2": 3125.0,
         "iiee_reduction_pct": 0.0,
-        "rmse_improvement_pct": 0.0,
-        "convlstm_brier": 0.143,
+        "rmse_improvement_pct": -0.28,
+        "convlstm_brier": 0.0279,
         "persistence_brier": 0.0278
       },
       {
         "lead_day": 3,
-        "convlstm_rmse": 0.295,
+        "convlstm_rmse": 0.0262,
         "persistence_rmse": 0.0261,
         "climatology_rmse": 0.0438,
-        "convlstm_mae": 0.2204,
+        "convlstm_mae": 0.0083,
         "persistence_mae": 0.0083,
-        "convlstm_iiee_km2": 213125.0,
+        "convlstm_iiee_km2": 5000.0,
         "persistence_iiee_km2": 4375.0,
-        "iiee_reduction_pct": 0.0,
-        "rmse_improvement_pct": 0.0,
-        "convlstm_brier": 0.1419,
+        "iiee_reduction_pct": -14.29,
+        "rmse_improvement_pct": -0.29,
+        "convlstm_brier": 0.0272,
         "persistence_brier": 0.0269
       },
       {
         "lead_day": 4,
-        "convlstm_rmse": 0.2917,
+        "convlstm_rmse": 0.0337,
         "persistence_rmse": 0.0341,
         "climatology_rmse": 0.0537,
-        "convlstm_mae": 0.2183,
+        "convlstm_mae": 0.0108,
         "persistence_mae": 0.0108,
-        "convlstm_iiee_km2": 210625.0,
+        "convlstm_iiee_km2": 7500.0,
         "persistence_iiee_km2": 6875.0,
-        "iiee_reduction_pct": 0.0,
-        "rmse_improvement_pct": 0.0,
-        "convlstm_brier": 0.1398,
+        "iiee_reduction_pct": -9.09,
+        "rmse_improvement_pct": 1.07,
+        "convlstm_brier": 0.0255,
         "persistence_brier": 0.0251
       },
       {
         "lead_day": 5,
-        "convlstm_rmse": 0.2883,
+        "convlstm_rmse": 0.0441,
         "persistence_rmse": 0.0448,
         "climatology_rmse": 0.0619,
-        "convlstm_mae": 0.2168,
+        "convlstm_mae": 0.0139,
         "persistence_mae": 0.0139,
-        "convlstm_iiee_km2": 209375.0,
+        "convlstm_iiee_km2": 10000.0,
         "persistence_iiee_km2": 9375.0,
-        "iiee_reduction_pct": 0.0,
-        "rmse_improvement_pct": 0.0,
-        "convlstm_brier": 0.1379,
+        "iiee_reduction_pct": -6.67,
+        "rmse_improvement_pct": 1.56,
+        "convlstm_brier": 0.0251,
         "persistence_brier": 0.0245
       },
       {
         "lead_day": 6,
-        "convlstm_rmse": 0.2818,
+        "convlstm_rmse": 0.0494,
         "persistence_rmse": 0.0514,
         "climatology_rmse": 0.0705,
-        "convlstm_mae": 0.2134,
+        "convlstm_mae": 0.0148,
         "persistence_mae": 0.0155,
-        "convlstm_iiee_km2": 207500.0,
+        "convlstm_iiee_km2": 10000.0,
         "persistence_iiee_km2": 10000.0,
         "iiee_reduction_pct": 0.0,
-        "rmse_improvement_pct": 0.0,
-        "convlstm_brier": 0.1363,
+        "rmse_improvement_pct": 3.86,
+        "convlstm_brier": 0.024,
         "persistence_brier": 0.023
       },
       {
         "lead_day": 7,
-        "convlstm_rmse": 0.2786,
+        "convlstm_rmse": 0.0575,
         "persistence_rmse": 0.0603,
         "climatology_rmse": 0.0786,
-        "convlstm_mae": 0.2116,
+        "convlstm_mae": 0.0175,
         "persistence_mae": 0.0184,
-        "convlstm_iiee_km2": 205625.0,
+        "convlstm_iiee_km2": 13125.0,
         "persistence_iiee_km2": 14375.0,
-        "iiee_reduction_pct": 0.0,
-        "rmse_improvement_pct": 0.0,
-        "convlstm_brier": 0.1347,
+        "iiee_reduction_pct": 8.7,
+        "rmse_improvement_pct": 4.69,
+        "convlstm_brier": 0.0247,
         "persistence_brier": 0.0234
       }
     ]
   },
   "iceberg_drift": {
-    "benchmark": "2D Hydrodynamic Momentum (Wind + Water Drag + Coriolis) vs Linear Dead-Reckoning",
-    "average_physics_error_km": 45.4,
-    "average_dead_reckoning_error_km": 67.0,
-    "benchmarks": [
+    "validation_method": "Multi-Berg, Multi-Window Satellite Validation with Per-Berg Estimated Drift",
+    "database": "BYU / USNIC Antarctic Iceberg Tracking Database (NIC/ASCAT passes)",
+    "total_windows_evaluated": 60,
+    "icebergs_evaluated_count": 10,
+    "physics_error_distribution": {
+      "mean_km": 15.3,
+      "median_km": 7.9,
+      "p25_km": 5.0,
+      "p75_km": 12.4,
+      "p90_km": 33.0
+    },
+    "dead_reckoning_error_distribution": {
+      "mean_km": 12.7,
+      "median_km": 3.9,
+      "p25_km": 0.6,
+      "p75_km": 9.4,
+      "p90_km": 20.9
+    },
+    "cone_calibration_pct": 90.0,
+    "sample_windows": [
       {
-        "iceberg_id": "A-23a",
-        "start_pos": [
-          -48.432,
-          -30.203
-        ],
-        "observed_end_pos": [
-          -48.388,
-          -30.015
-        ],
-        "physics_error_km": 40.5,
-        "dead_reckoning_error_km": 58.4,
-        "displacement_improvement_pct": 30.6
+        "berg_id": "A-23a",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 3.5,
+        "physics_error_km": 113.26,
+        "dead_reckoning_error_km": 155.44,
+        "in_cone_p10_p90": false
       },
       {
-        "iceberg_id": "D-28",
-        "start_pos": [
-          -61.16,
-          -53.31
-        ],
-        "observed_end_pos": [
-          -61.16,
-          -53.31
-        ],
-        "physics_error_km": 47.9,
-        "dead_reckoning_error_km": 71.4,
-        "displacement_improvement_pct": 32.9
+        "berg_id": "A-23a",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 0.23,
+        "physics_error_km": 4.5,
+        "dead_reckoning_error_km": 10.09,
+        "in_cone_p10_p90": true
       },
       {
-        "iceberg_id": "A-76a",
-        "start_pos": [
-          -51.65,
-          -37.72
-        ],
-        "observed_end_pos": [
-          -51.65,
-          -37.72
-        ],
-        "physics_error_km": 47.8,
-        "dead_reckoning_error_km": 71.3,
-        "displacement_improvement_pct": 32.9
+        "berg_id": "A-23a",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 0.09,
+        "physics_error_km": 3.94,
+        "dead_reckoning_error_km": 0.58,
+        "in_cone_p10_p90": true
+      },
+      {
+        "berg_id": "A-23a",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 0.13,
+        "physics_error_km": 84.85,
+        "dead_reckoning_error_km": 81.91,
+        "in_cone_p10_p90": false
+      },
+      {
+        "berg_id": "A-23a",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 0.16,
+        "physics_error_km": 10.03,
+        "dead_reckoning_error_km": 0.28,
+        "in_cone_p10_p90": true
+      },
+      {
+        "berg_id": "A-23a",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 0.2,
+        "physics_error_km": 7.83,
+        "dead_reckoning_error_km": 2.33,
+        "in_cone_p10_p90": true
+      },
+      {
+        "berg_id": "D-28",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 0.08,
+        "physics_error_km": 6.17,
+        "dead_reckoning_error_km": 0.12,
+        "in_cone_p10_p90": true
+      },
+      {
+        "berg_id": "D-28",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 0.16,
+        "physics_error_km": 4.93,
+        "dead_reckoning_error_km": 0.72,
+        "in_cone_p10_p90": true
+      },
+      {
+        "berg_id": "D-28",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 0.27,
+        "physics_error_km": 6.03,
+        "dead_reckoning_error_km": 0.75,
+        "in_cone_p10_p90": true
+      },
+      {
+        "berg_id": "D-28",
+        "forecast_hours": 24.0,
+        "initial_speed_knots": 0.17,
+        "physics_error_km": 9.71,
+        "dead_reckoning_error_km": 0.23,
+        "in_cone_p10_p90": true
       }
     ]
   },
   "route_pareto": {
     "voyage": "Port of Cape Town (-33.918\u00b0, 18.423\u00b0) to Bharati Station (-69.407\u00b0, 76.187\u00b0)",
     "vessel_class": "PC5 (MV Vasiliy Golovnin)",
-    "modes": {
-      "balanced": {
-        "mode_name": "Balanced Polar Expedition Route",
-        "distance_nm": 3071.0,
-        "transit_days": 10.69,
-        "transit_hours": 256.6,
-        "fuel_mt": 193.9,
-        "min_polaris_rio": 12,
-        "safety_score": 86,
-        "polaris_compliance": "COMPLIANT"
+    "standard_scenario": {
+      "modes": {
+        "balanced": {
+          "mode_name": "Balanced Polar Expedition Route",
+          "distance_nm": 3092.1,
+          "transit_days": 9.54,
+          "fuel_mt": 197.1,
+          "min_polaris_rio": 30,
+          "safety_score": 99,
+          "polaris_compliance": "COMPLIANT"
+        },
+        "safest": {
+          "mode_name": "Maximum Safety & Iceberg Stand-Off Route",
+          "distance_nm": 3219.9,
+          "transit_days": 11.67,
+          "fuel_mt": 166.7,
+          "min_polaris_rio": 30,
+          "safety_score": 99,
+          "polaris_compliance": "COMPLIANT"
+        },
+        "fastest": {
+          "mode_name": "Minimum Transit Time (Direct Icebreaker Path)",
+          "distance_nm": 3022.1,
+          "transit_days": 8.43,
+          "fuel_mt": 224.3,
+          "min_polaris_rio": 29,
+          "safety_score": 99,
+          "polaris_compliance": "COMPLIANT"
+        },
+        "eco_fuel": {
+          "mode_name": "Eco-Polar Fuel-Optimized Route",
+          "distance_nm": 3094.3,
+          "transit_days": 12.28,
+          "fuel_mt": 144.9,
+          "min_polaris_rio": 30,
+          "safety_score": 99,
+          "polaris_compliance": "COMPLIANT"
+        }
       },
-      "safest": {
-        "mode_name": "Maximum Safety & Iceberg Stand-Off Route",
-        "distance_nm": 3227.8,
-        "transit_days": 13.08,
-        "transit_hours": 314.0,
-        "fuel_mt": 173.2,
-        "min_polaris_rio": 12,
-        "safety_score": 86,
-        "polaris_compliance": "COMPLIANT"
-      },
-      "fastest": {
-        "mode_name": "Minimum Transit Time (Direct Icebreaker Path)",
-        "distance_nm": 3014.7,
-        "transit_days": 9.45,
-        "transit_hours": 226.8,
-        "fuel_mt": 216.6,
-        "min_polaris_rio": 12,
-        "safety_score": 86,
-        "polaris_compliance": "COMPLIANT"
-      },
-      "eco_fuel": {
-        "mode_name": "Eco-Polar Fuel-Optimized Route",
-        "distance_nm": 3070.9,
-        "transit_days": 13.65,
-        "transit_hours": 327.6,
-        "fuel_mt": 152.7,
-        "min_polaris_rio": 12,
-        "safety_score": 86,
-        "polaris_compliance": "COMPLIANT"
+      "rejection_analysis": {
+        "unconstrained_track": "Direct Great Circle Baseline",
+        "is_rejected": false,
+        "min_rio": 29,
+        "land_intersections_count": 0,
+        "iceberg_conflicts_count": 0,
+        "reasons": [
+          "Direct great-circle route is clear of land, iceberg cones, and heavy pack ice."
+        ]
       }
     },
-    "rejection_analysis": {
-      "unconstrained_track": "Direct Great Circle Baseline",
-      "is_rejected": false,
-      "min_rio": 12,
-      "land_intersections_count": 0,
-      "iceberg_conflicts_count": 0,
-      "reasons": [
-        "Direct great-circle route is clear of land, iceberg cones, and heavy pack ice."
-      ]
+    "late_season_miz_scenario": {
+      "modes": {
+        "balanced": {
+          "mode_name": "Balanced Polar Expedition Route",
+          "distance_nm": 3092.1,
+          "transit_days": 9.91,
+          "fuel_mt": 200.3,
+          "min_polaris_rio": 22,
+          "safety_score": 99,
+          "polaris_compliance": "COMPLIANT"
+        },
+        "safest": {
+          "mode_name": "Maximum Safety & Iceberg Stand-Off Route",
+          "distance_nm": 3219.9,
+          "transit_days": 11.67,
+          "fuel_mt": 166.7,
+          "min_polaris_rio": 30,
+          "safety_score": 99,
+          "polaris_compliance": "COMPLIANT"
+        },
+        "fastest": {
+          "mode_name": "Minimum Transit Time (Direct Icebreaker Path)",
+          "distance_nm": 3022.1,
+          "transit_days": 9.72,
+          "fuel_mt": 243.7,
+          "min_polaris_rio": 12,
+          "safety_score": 70,
+          "polaris_compliance": "COMPLIANT"
+        },
+        "eco_fuel": {
+          "mode_name": "Eco-Polar Fuel-Optimized Route",
+          "distance_nm": 3094.3,
+          "transit_days": 12.56,
+          "fuel_mt": 147.2,
+          "min_polaris_rio": 25,
+          "safety_score": 99,
+          "polaris_compliance": "COMPLIANT"
+        }
+      },
+      "description": "Marginal Ice Zone late-season scenario forcing trade-offs between transit speed (fast penetration), fuel efficiency, and ice safety (avoiding heavy pack ice)."
     }
   },
   "ablation_studies": {
@@ -224,5 +318,5 @@
       "mgo_fuel_100nm_open_water_mt": 5.15
     }
   },
-  "timestamp_utc": "2026-09-28T17:05:31Z"
+  "timestamp_utc": "2026-10-01T11:00:18Z"
 }

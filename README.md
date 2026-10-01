@@ -229,12 +229,12 @@ For rigorous auditing and polar compliance evaluation, comprehensive documentati
 
 | Document | Purpose and Scope |
 | :--- | :--- |
-| **[DATA_SOURCES.md](file:///c:/Users/rohit/sih59/DATA_SOURCES.md)** | Full provenance of satellite sea ice (NSIDC G02135), reanalysis winds (ERA5), ocean currents (CMEMS), BYU iceberg tracks, and ADD v7.4 coastline polygons. |
-| **[MODEL_CARD.md](file:///c:/Users/rohit/sih59/MODEL_CARD.md)** | ConvLSTM neural architecture, 5-channel tensor specifications, training hyperparameters, boundary-weighted loss, and ethical limitations. |
-| **[EVALUATION.md](file:///c:/Users/rohit/sih59/EVALUATION.md)** | Quantitative benchmark comparisons against Persistence and Climatology on held-out seasonal data (Days 15–21), iceberg drift displacement errors against BYU ground truth, and ablation studies. |
-| **[LIMITATIONS.md](file:///c:/Users/rohit/sih59/LIMITATIONS.md)** | Sensor resolution limits (25 km passive microwave), melt pond summer biases, tabular iceberg draft uncertainties, and operational fail-safe boundaries. |
-| **[SAFETY_CASE.md](file:///c:/Users/rohit/sih59/SAFETY_CASE.md)** | IMO Polar Code and MSC.1/Circ.1519 compliance arguments, risk matrices, "DO NOT USE FOR NAVIGATION" fail-safe states, and Master Mariner override doctrine. |
-| **[ARCHITECTURE.md](file:///c:/Users/rohit/sih59/ARCHITECTURE.md)** | Detailed data flow diagrams, module boundaries, coordinate systems (WGS84 and EPSG:3412), REST API contracts, and ECDIS GeoJSON specifications. |
+| **[DATA_SOURCES.md](DATA_SOURCES.md)** | Full provenance of satellite sea ice (NSIDC G02135), reanalysis winds (ERA5), ocean currents (CMEMS), BYU iceberg tracks, and ADD v7.4 coastline polygons. |
+| **[MODEL_CARD.md](MODEL_CARD.md)** | ConvLSTM neural architecture, 5-channel tensor specifications, training hyperparameters, boundary-weighted loss, and ethical limitations. |
+| **[EVALUATION.md](EVALUATION.md)** | Quantitative benchmark comparisons against Persistence and Climatology on held-out seasonal data (Days 15–21), iceberg drift displacement errors against BYU ground truth, and ablation studies. |
+| **[LIMITATIONS.md](LIMITATIONS.md)** | Sensor resolution limits (25 km passive microwave), melt pond summer biases, tabular iceberg draft uncertainties, and operational fail-safe boundaries. |
+| **[SAFETY_CASE.md](SAFETY_CASE.md)** | IMO Polar Code and MSC.1/Circ.1519 compliance arguments, risk matrices, "DO NOT USE FOR NAVIGATION" fail-safe states, and Master Mariner override doctrine. |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Detailed data flow diagrams, module boundaries, coordinate systems (WGS84 and EPSG:3412), REST API contracts, and ECDIS GeoJSON specifications. |
 
 ---
 
@@ -285,58 +285,47 @@ Below is an operational route optimization request for the polar resupply vessel
     "corrective_routing_action": "Synthesized 4D A* Pareto corridors routing through Marginal Ice Zone leads."
   },
   "pareto_routes": {
+    "fastest": {
+      "mode": "Minimum Transit Time (Direct Icebreaker Path)",
+      "distance_nm": 3022.1,
+      "total_transit_days": 9.72,
+      "estimated_duration_hours": 233.3,
+      "mgo_fuel_consumption_mt": 243.7,
+      "minimum_polaris_rio": 12,
+      "safety_score": 70,
+      "polaris_compliance": "COMPLIANT"
+    },
     "balanced": {
-      "mode": "Balanced",
-      "distance_nm": 3072.4,
-      "estimated_duration_hours": 242.8,
-      "mgo_fuel_consumption_mt": 178.6,
-      "average_rio": 14.8,
-      "minimum_rio": 6.2,
-      "ice_transit_nm": 348.1,
-      "max_sea_ice_concentration": 0.68,
-      "risk_band": "LOW_RISK",
-      "confidence_score": 0.88,
-      "iceberg_standoff_distance_nm": 22.5
+      "mode": "Balanced Polar Expedition Route",
+      "distance_nm": 3092.1,
+      "total_transit_days": 9.91,
+      "estimated_duration_hours": 237.8,
+      "mgo_fuel_consumption_mt": 200.3,
+      "minimum_polaris_rio": 22,
+      "safety_score": 99,
+      "polaris_compliance": "COMPLIANT"
     },
-    "maximum_safety": {
-      "mode": "Maximum Safety",
-      "distance_nm": 3227.8,
-      "estimated_duration_hours": 268.4,
-      "mgo_fuel_consumption_mt": 194.2,
-      "average_rio": 18.2,
-      "minimum_rio": 11.5,
-      "ice_transit_nm": 142.0,
-      "max_sea_ice_concentration": 0.38,
-      "risk_band": "LOW_RISK",
-      "confidence_score": 0.94,
-      "iceberg_standoff_distance_nm": 35.0
+    "eco_fuel": {
+      "mode": "Eco-Polar Fuel-Optimized Route",
+      "distance_nm": 3094.3,
+      "total_transit_days": 12.56,
+      "estimated_duration_hours": 301.4,
+      "mgo_fuel_consumption_mt": 147.2,
+      "minimum_polaris_rio": 25,
+      "safety_score": 99,
+      "polaris_compliance": "COMPLIANT"
     },
-    "fastest_transit": {
-      "mode": "Fastest Transit",
-      "distance_nm": 3014.7,
-      "estimated_duration_hours": 226.5,
-      "mgo_fuel_consumption_mt": 189.4,
-      "average_rio": 12.1,
-      "minimum_rio": 4.1,
-      "ice_transit_nm": 482.0,
-      "max_sea_ice_concentration": 0.74,
-      "risk_band": "MODERATE_RISK",
-      "confidence_score": 0.82,
-      "iceberg_standoff_distance_nm": 12.0
-    },
-    "eco_polar": {
-      "mode": "Eco-Polar",
-      "distance_nm": 3098.2,
-      "estimated_duration_hours": 274.0,
-      "mgo_fuel_consumption_mt": 162.1,
-      "average_rio": 15.4,
-      "minimum_rio": 7.0,
-      "ice_transit_nm": 310.5,
-      "max_sea_ice_concentration": 0.62,
-      "risk_band": "LOW_RISK",
-      "confidence_score": 0.89,
-      "iceberg_standoff_distance_nm": 20.0
+    "safest": {
+      "mode": "Maximum Safety & Iceberg Stand-Off Route",
+      "distance_nm": 3219.9,
+      "total_transit_days": 11.67,
+      "estimated_duration_hours": 280.1,
+      "mgo_fuel_consumption_mt": 166.7,
+      "minimum_polaris_rio": 30,
+      "safety_score": 99,
+      "polaris_compliance": "COMPLIANT"
     }
+  }
   }
 }
 ```
@@ -345,26 +334,44 @@ Below is an operational route optimization request for the polar resupply vessel
 
 ## Quantitative Evaluation Summary
 
-Comprehensive model evaluation has been executed and saved in the [`evaluation/`](file:///c:/Users/rohit/sih59/evaluation/) directory. See [`EVALUATION.md`](file:///c:/Users/rohit/sih59/EVALUATION.md) for the full breakdown.
+Comprehensive model evaluation has been executed and saved in the [`evaluation/`](evaluation/) directory. See [`EVALUATION.md`](EVALUATION.md) and [`evaluation/results/metrics.json`](evaluation/results/metrics.json) for the full breakdown.
 
 ### 1. Sea-Ice Concentration Forecast (Held-Out Days 15–21)
-| Model | Lead Day 1 RMSE | Lead Day 3 RMSE | Lead Day 5 RMSE | Mean IIEE ($\text{km}^2$) | Improvement over Persistence |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Climatology** | 0.2312 | 0.2341 | 0.2389 | 148,200 | Baseline |
-| **Persistence Baseline** | 0.0514 | 0.1082 | 0.1584 | 92,400 | Reference |
-| **ConvLSTM (POLARIS-AI)** | **0.0381** | **0.0764** | **0.1129** | **68,100** | **+28.7% lower RMSE** |
+Evaluated with plain signed metrics (no artificial clamping) against standard persistence and climatology:
 
-### 2. Iceberg Lagrangian Drift (BYU Satellite Ground Truth)
-| Iceberg Identifier | Momentum Drift Error (km) | Dead-Reckoning Baseline Error (km) | Accuracy Improvement |
-| :--- | :---: | :---: | :---: |
-| **A-23a (Weddell Sea)** | **18.4 km** | 26.5 km | **+30.6%** |
-| **D-28 (Amery Ice Shelf)** | **14.3 km** | 21.3 km | **+32.9%** |
+| Model / Horizon | Lead Day 1 RMSE | Lead Day 3 RMSE | Lead Day 5 RMSE | Lead Day 7 RMSE | 7-Day Mean RMSE | Gain vs Persistence |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Climatology Baseline** | 0.0352 | 0.0438 | 0.0619 | 0.0786 | 0.0548 | Baseline |
+| **Persistence Baseline** | 0.0121 | 0.0261 | 0.0448 | 0.0603 | 0.0353 | Reference |
+| **ConvLSTM + Blended Advection** | **0.0122** | **0.0262** | **0.0441** | **0.0575** | **0.0345** | **+2.27% Mean (+4.70% at Day 7)** |
 
-### 3. Routing Pareto Frontiers (Cape Town $\rightarrow$ Bharati)
-- **Fastest Transit:** $3014.7\text{ NM}$, $226.5\text{ h}$, $189.4\text{ MT MGO}$
-- **Balanced Route:** $3072.4\text{ NM}$, $242.8\text{ h}$, $178.6\text{ MT MGO}$
-- **Eco-Polar:** $3098.2\text{ NM}$, $274.0\text{ h}$, $162.1\text{ MT MGO}$ ($-9.2\%$ fuel savings vs Balanced)
-- **Maximum Safety:** $3227.8\text{ NM}$, $268.4\text{ h}$, $194.2\text{ MT MGO}$ ($+35\text{ NM}$ iceberg standoff, $0.38$ max SIC)
+*Operational reality:* The forecast matches persistence at Day 1 (0.0122 vs 0.0121, -0.48%) and outperforms persistence at Days 5–7 as advection and thermodynamic melt trends accumulate (+1.56% at Day 5, +3.86% at Day 6, +4.70% at Day 7).
+
+### 2. Multi-Berg, Multi-Window Iceberg Drift Validation (BYU/USNIC Satellite Passes)
+Evaluated across **10 icebergs** and **60 multi-day satellite observation windows** with per-berg estimated drift velocity:
+
+| Evaluation Metric | 2D Momentum Physics Model | Linear Dead-Reckoning Baseline |
+| :--- | :---: | :---: |
+| **Mean Displacement Error** | **15.3 km** | 12.7 km |
+| **Median Displacement Error** | **7.9 km** | 3.9 km |
+| **25th Percentile ({25}$)** | **5.0 km** | 0.6 km |
+| **75th Percentile ({75}$)** | **12.4 km** | 9.4 km |
+| **90th Percentile ({90}$)** | **33.0 km** | 20.9 km |
+| **Ensemble Cone Calibration ({10}$–{90}$)** | **90.0% coverage** (54/60 inside cone) | N/A (Deterministic) |
+
+### 3. Routing Pareto Frontiers (Cape Town $\rightarrow$ Bharati Station, PC5 Vessel)
+Evaluated under both standard baseline and late-season Marginal Ice Zone (MIZ) stress conditions:
+
+- **Standard Operational Baseline:**
+  - **Fastest Transit:** .1\text{ NM}$, .43\text{ d}$, .3\text{ MT MGO}$, Min RIO $
+  - **Balanced Route:** .1\text{ NM}$, .54\text{ d}$, .1\text{ MT MGO}$, Min RIO $
+  - **Eco-Fuel Route:** .3\text{ NM}$, .28\text{ d}$, .9\text{ MT MGO}$, Min RIO $ ($-26.5\%$ fuel savings vs Balanced)
+  - **Maximum Safety:** .9\text{ NM}$, .67\text{ d}$, .7\text{ MT MGO}$, Min RIO $
+- **Late-Season Marginal Ice Zone (MIZ) Stress Scenario (Varying RIOs):**
+  - **Fastest Transit:** .1\text{ NM}$, .72\text{ d}$, .7\text{ MT MGO}$, **Min RIO 12** (heavy ice penetration)
+  - **Balanced Route:** .1\text{ NM}$, .91\text{ d}$, .3\text{ MT MGO}$, **Min RIO 22**
+  - **Eco-Fuel Route:** .3\text{ NM}$, .56\text{ d}$, .2\text{ MT MGO}$, **Min RIO 25**
+  - **Maximum Safety:** .9\text{ NM}$, .67\text{ d}$, .7\text{ MT MGO}$, **Min RIO 30** (outer perimeter lead)
 
 ---
 

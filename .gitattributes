@@ -1,0 +1,9 @@
+# Git Large File Storage (LFS) Tracking Configuration
+# Track large binary datasets, serialized neural model weights, and archive tables
+
+*.nc filter=lfs diff=lfs merge=lfs -text
+*.pt filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text
+*.tif filter=lfs diff=lfs merge=lfs -text
+*.tiff filter=lfs diff=lfs merge=lfs -text
+backend/app/data/byu_icebergs/updated7_consol/*.csv filter=lfs diff=lfs merge=lfs -text

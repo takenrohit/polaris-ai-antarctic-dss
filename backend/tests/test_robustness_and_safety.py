@@ -8,6 +8,7 @@ Verifies:
 """
 import sys
 import os
+from datetime import datetime, timezone, timedelta
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -62,26 +63,31 @@ class TestSafetyAndCollisionGates:
         assert mask.is_land_or_shelf(-71.5, 71.0) is True
 
     def test_missing_data_quality_assessment(self):
-        # Scenario 1: Normal operational data
+        # Scenario 1: Normal operational data (< 24h latency)
+        recent_iso = (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat()
         q_normal = assess_data_quality(
-            observation_iso="2026-01-21T00:00:00Z",
+            observation_iso=recent_iso,
             has_sic=True,
             has_wind=True,
             has_currents=True
         )
-        assert q_normal["quality_status"] in ["OPERATIONAL", "DEGRADED"]
+        assert q_normal["quality_status"] == "OPERATIONAL"
+        assert q_normal["fail_safe_gate_tripped"] is False
+        assert q_normal["is_safe_for_decision_support"] is True
 
         # Scenario 2: Critical sea-ice dropout -> DO NOT USE FOR NAVIGATION
         q_critical = assess_data_quality(has_sic=False)
         assert q_critical["quality_status"] == "DO_NOT_USE_FOR_NAVIGATION"
         assert q_critical["is_safe_for_decision_support"] is False
+        assert q_critical["fail_safe_gate_tripped"] is True
 
-        # Scenario 3: Stale data (> 72h) -> DEGRADED
+        # Scenario 3: Stale data (> 48h) trips fail-safe gate -> DO_NOT_USE_FOR_NAVIGATION
         q_stale = assess_data_quality(
             observation_iso="2024-01-01T00:00:00Z",
             max_latency_hours=48.0
         )
-        assert q_stale["quality_status"] == "DEGRADED"
+        assert q_stale["quality_status"] == "DO_NOT_USE_FOR_NAVIGATION"
+        assert q_stale["fail_safe_gate_tripped"] is True
 
     def test_route_optimizer_rejection_explanation(self):
         # Request route from Cape Town to Bharati

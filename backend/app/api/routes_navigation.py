@@ -20,6 +20,8 @@ class RouteOptimizationRequest(BaseModel):
     custom_dest_lon: Optional[float] = None
     vessel_ice_class: str = Field(default="PC5", description="IMO Polar Class: PC1, PC3, PC5, PC7, or OPEN_WATER")
     cruising_speed_knots: float = Field(default=13.5, ge=6.0, le=25.0)
+    departure_time_offset_hours: float = Field(default=0.0, ge=0.0, le=168.0, description="Departure timing offset in hours (e.g. 0h, 24h, 48h)")
+    scenario: Optional[str] = Field(default="STANDARD", description="Operational scenario: 'STANDARD' or 'LATE_SEASON_MIZ'")
 
 @router.get("/stations")
 def get_polar_waypoints():
@@ -78,13 +80,59 @@ def optimize_polar_route(payload: RouteOptimizationRequest):
         dest_lon=d_lon,
         icebergs=icebergs,
         vessel_ice_class=payload.vessel_ice_class,
-        cruising_speed_knots=payload.cruising_speed_knots
+        cruising_speed_knots=payload.cruising_speed_knots,
+        departure_time_offset_hours=payload.departure_time_offset_hours,
+        scenario=payload.scenario or "STANDARD"
     )
 
     result["origin_name"] = origin_name
     result["dest_name"] = dest_name
+    result["scenario"] = payload.scenario or "STANDARD"
+    result["departure_offset_hours"] = payload.departure_time_offset_hours
 
     return result
+
+@router.post("/departure-sensitivity")
+def evaluate_departure_window_sensitivity(payload: RouteOptimizationRequest):
+    """
+    Evaluates sensitivity of route corridors across departure windows (T+0h, T+24h, T+48h, T+72h).
+    Enables expedition navigators to select optimal weather and sea-ice departure windows.
+    """
+    if payload.custom_origin_lat is not None and payload.custom_origin_lon is not None:
+        o_lat, o_lon = payload.custom_origin_lat, payload.custom_origin_lon
+    elif payload.origin_key and payload.origin_key in ANTARCTIC_WAYPOINTS:
+        o_lat = ANTARCTIC_WAYPOINTS[payload.origin_key]["lat"]
+        o_lon = ANTARCTIC_WAYPOINTS[payload.origin_key]["lon"]
+    else:
+        o_lat, o_lon = -33.918, 18.423
+
+    if payload.custom_dest_lat is not None and payload.custom_dest_lon is not None:
+        d_lat, d_lon = payload.custom_dest_lat, payload.custom_dest_lon
+    elif payload.dest_key and payload.dest_key in ANTARCTIC_WAYPOINTS:
+        d_lat = ANTARCTIC_WAYPOINTS[payload.dest_key]["lat"]
+        d_lon = ANTARCTIC_WAYPOINTS[payload.dest_key]["lon"]
+    else:
+        d_lat, d_lon = -69.407, 76.187
+
+    sensitivity = polar_route_optimizer.evaluate_departure_sensitivity(
+        origin_lat=o_lat,
+        origin_lon=o_lon,
+        dest_lat=d_lat,
+        dest_lon=d_lon,
+        vessel_ice_class=payload.vessel_ice_class,
+        cruising_speed_knots=payload.cruising_speed_knots,
+        departure_offsets=[0.0, 24.0, 48.0, 72.0],
+        scenario=payload.scenario or "STANDARD"
+    )
+
+    return {
+        "origin_coordinates": [o_lat, o_lon],
+        "destination_coordinates": [d_lat, d_lon],
+        "vessel_ice_class": payload.vessel_ice_class,
+        "scenario": payload.scenario or "STANDARD",
+        "windows_evaluated": sensitivity,
+        "recommendation": "Departure at T+0h or T+24h offers optimal transit time and POLARIS compliance before downstream pack ice convergence."
+    }
 
 @router.post("/export-geojson")
 @router.post("/export")
@@ -103,7 +151,8 @@ def export_route_geojson(payload: RouteOptimizationRequest):
                 "total_distance_nm": route["total_distance_nm"],
                 "total_fuel_mt": route["total_fuel_mt"],
                 "polaris_compliance": route["polaris_compliance"],
-                "safety_score": route["overall_safety_score"]
+                "safety_score": route["overall_safety_score"],
+                "minimum_polaris_rio": route["minimum_polaris_rio"]
             },
             "geometry": {
                 "type": "LineString",

@@ -10,16 +10,15 @@
 
 POLARIS-AI integrates multi-source satellite Earth observation, atmospheric reanalysis, and oceanographic data products into a unified, CF-1.8 compliant NetCDF-4 observational datastore (`antarctic_metocean_reference.nc`). The spatial domain spans 50°S to 82°S latitude and 180°W to 180°E longitude across the Southern Ocean and Antarctic marginal seas (Weddell, Bellingshausen, Amundsen, Ross, and Prydz Bay sectors).
 
-| Dataset Identifier | Variable Description | Physical Unit | Source Agency | Sensor / Platform | Spatial Resolution | Temporal Frequency |
+| Dataset Identifier | Variable Description | Physical Unit | Provenance & Quality Status | Sensor / Platform | Spatial Resolution | Temporal Frequency |
 |---|---|---|---|---|---|---|
-| **NOAA/NSIDC G02135 v4.0** | Sea-Ice Concentration (SIC) | Fraction [0.0, 1.0] | NOAA / NSIDC | DMSP SSMIS, AMSR2 | 25 km polar stereographic (EPSG:3412) | Daily |
-| **ECMWF ERA5 Reanalysis** | 10-meter U-Wind Component ($u_{10}$) | $\text{m/s}$ | ECMWF / Copernicus | Atmospheric model + satellite assimilation | 0.25° grid (~25 km) | Daily mean |
-| **ECMWF ERA5 Reanalysis** | 10-meter V-Wind Component ($v_{10}$) | $\text{m/s}$ | ECMWF / Copernicus | Atmospheric model + satellite assimilation | 0.25° grid (~25 km) | Daily mean |
-| **Copernicus Marine (CMEMS)** | Surface U-Current ($u_{curr}$) | $\text{m/s}$ | Mercator Ocean / CMEMS | GLOBAL_REANALYSIS_PHY_001_030 | 0.083° (~8 km) | Daily mean |
-| **Copernicus Marine (CMEMS)** | Surface V-Current ($v_{curr}$) | $\text{m/s}$ | Mercator Ocean / CMEMS | GLOBAL_REANALYSIS_PHY_001_030 | 0.083° (~8 km) | Daily mean |
-| **NOAA OISST v2.1** | Sea Surface Temperature (SST) | °C | NOAA NCEI | Advanced Very High Resolution Radiometer (AVHRR) | 0.25° grid | Daily |
-| **BYU / USNIC Database** | Tabular Iceberg Positions & Geometry | Lat/Lon, km, GT | BYU Scatterometer / US National Ice Center | MetOp ASCAT, Sentinel-1 SAR, Envisat | Individual iceberg tracks | Multi-day satellite passes |
-| **SCAR ADD / IBCSO** | Antarctic Coastline & Ice Shelf Mask | Polygon Geometry | Scientific Committee on Antarctic Research | Antarctic Digital Database (ADD v7.4) | High-fidelity vectors | Static reference |
+| **NOAA/NSIDC G02135 v4.0** | Sea-Ice Concentration (SIC) | Fraction [0.0, 1.0] | **Real Satellite Observations** | DMSP SSMIS, AMSR2 | 25 km polar stereographic (EPSG:3412) | Daily CDR |
+| **ECMWF ERA5 Reanalysis** | 10-meter Wind Vectors ($u_{10}, v_{10}$) | $\text{m/s}$ | **Real Atmospheric Reanalysis** | Copernicus ERA5 / Open-Meteo | 0.25° grid (~25 km) | Daily & hourly forcing |
+| **Copernicus Marine (CMEMS)** | Surface Ocean Current ($u_{curr}, v_{curr}$) | $\text{m/s}$ | **CMEMS GLORYS12-Calibrated Proxy** | Calibrated geostrophic + Ekman drift | 0.25° polar grid | Dynamic hydrodynamic field |
+| **NOAA OISST / ERA5** | Sea Surface Temperature (SST) | °C | **Polar Climatological Thermal Proxy** | Satellite IR/microwave assimilation | 0.25° grid | Daily surface boundary |
+| **BYU / USNIC Database** | Tabular Iceberg Positions & Geometry | Lat/Lon, km, GT | **Real Satellite Tracking Archive** | MetOp ASCAT, Sentinel-1 SAR, Envisat | Individual iceberg tracks | Multi-day satellite passes |
+| **Copernicus Sentinel-1 / AMSR2** | High-Res SAR & Microwave Ingestion | Sigma-0 backscatter, SIC | **Operational Satellite Ingestion Stubs** | Sentinel-1 C-SAR & GCOM-W1 AMSR2 | 50 m to 10 km | Near-Real-Time (NRT) stubs |
+| **SCAR ADD / IBCSO** | Antarctic Coastline & Ice Shelf Mask | Polygon Geometry | **Real Vector Cartography** | Antarctic Digital Database (ADD v7.4) | Sub-meter vectors | Static reference |
 
 ---
 
@@ -32,19 +31,23 @@ POLARIS-AI integrates multi-source satellite Earth observation, atmospheric rean
   - $2530$: Coastline boundary.
   - $2540$: Continental landmass / permanent ice sheet.
   - $2550$: Polar hole missing region.
-- **Preprocessing:** Script `backend/scripts/build_real_antarctic_dataset.py` reprojects daily GeoTIFFs using `rasterio.warp.transform` and bilinear interpolation onto a regular geographic WGS84 coordinate grid (49 latitude points from -78°S to -54°S $\times$ 73 longitude points from -180° to +180°).
+- **Preprocessing:** Script `backend/scripts/build_real_antarctic_dataset.py` reprojects daily GeoTIFFs using `rasterio.warp.transform` and bilinear interpolation onto a regular geographic WGS84 coordinate grid (49 latitude points from -78°S to -54°S $\times$ 73 longitude points from -180° to +180°). Latitude clamp: regions north of -56°S are strictly open ocean (SIC = 0.0) to eliminate coastal tropical artifacts.
 
 ---
 
-## 3. Atmospheric and Oceanographic Forcings (ERA5 & CMEMS)
+## 3. Atmospheric and Oceanographic Forcings
 
-### 10-Meter Wind Vectors ($u_{10}, v_{10}$)
-- Extracted from ECMWF ERA5 reanalysis via the Open-Meteo climate archive across the Antarctic theater.
-- Daily means provide the driving force for aerodynamic drag ($\vec{F}_{air}$) in the 2D Lagrangian iceberg drift engine and wave-induced resistance additions for vessel routing.
+### 10-Meter Wind Vectors ($u_{10}, v_{10}$) — Real ERA5 Reanalysis
+- Extracted from ECMWF ERA5 reanalysis via the Copernicus / Open-Meteo climate API across the Southern Ocean and Antarctic sectors.
+- Real 10m horizontal wind fields drive aerodynamic form drag ($\vec{F}_{air}$) in the 2D Lagrangian iceberg drift engine and wave resistance corrections in vessel routing.
 
-### Surface Ocean Currents ($u_{curr}, v_{curr}$)
-- Extracted from CMEMS GLORYS12 reanalysis / geostrophic surface current estimates.
-- Incorporates the Antarctic Circumpolar Current (ACC) eastward transport and coastal Antarctic Counter-Current (East Wind Drift) westward flow.
+### Surface Ocean Currents ($u_{curr}, v_{curr}$) — CMEMS GLORYS12-Calibrated Proxy
+- Calibrated against Copernicus Marine (CMEMS) GLORYS12 reanalysis and geostrophic surface velocities.
+- Formally models the eastward Antarctic Circumpolar Current (ACC) core ($+0.15$ to $+0.35\text{ m/s}$ between 50°S and 60°S) and the westward coastal Antarctic Counter-Current / East Wind Drift ($-0.08$ to $-0.15\text{ m/s}$ along the continental shelf margin).
+- Explicitly documented as a calibrated hydrodynamic proxy when full real-time Mercator OPeNDAP streams are unreachable or throttled.
+
+### Sea Surface Temperature (SST) — Thermal Proxy
+- Calibrated against NOAA OISST v2.1 and ERA5 polar surface temperatures, declining monotonically from Subantarctic waters (+4°C to +8°C at 50°S) to sea water freezing point ($-1.8^\circ\text{C}$) at the consolidated pack ice boundary.
 
 ---
 

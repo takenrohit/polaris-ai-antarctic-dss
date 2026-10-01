@@ -63,9 +63,9 @@ class SeaIceConvLSTM(nn.Module):
 
         self.conv_out = nn.Sequential(
             nn.Conv2d(hidden_dim, 16, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.LeakyReLU(0.1),
             nn.Conv2d(16, 1, kernel_size=1),
-            nn.Sigmoid()
+            nn.Tanh()
         )
 
     def forward(self, x: torch.Tensor, future_steps: int = 7) -> torch.Tensor:
@@ -92,7 +92,8 @@ class SeaIceConvLSTM(nn.Module):
                 h[layer_idx], c[layer_idx] = cell(inp, h[layer_idx], c[layer_idx])
                 inp = h[layer_idx]
 
-            cur_pred = self.conv_out(h[-1])
+            delta = self.conv_out(h[-1]) * 0.12
+            cur_pred = torch.clamp(cur_pred + delta, 0.0, 1.0)
             outputs.append(cur_pred)
 
         return torch.stack(outputs, dim=1)
