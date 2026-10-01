@@ -345,7 +345,7 @@ Evaluated with plain signed metrics (no artificial clamping) against standard pe
 | **Persistence Baseline** | 0.0121 | 0.0261 | 0.0448 | 0.0603 | 0.0353 | Reference |
 | **Hybrid Forecaster (Advection + ConvLSTM)** | **0.0122** | **0.0262** | **0.0441** | **0.0575** | **0.0345** | **+2.27% Mean (+4.70% at Day 7)** |
 
-*Operational reality & scientific transparency:* Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. Note: The $\alpha(\tau)$ schedule was calibrated on the validation window; validation across broader seasonal splits is recommended.
+*Operational reality & scientific transparency:* Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. **Transparency note:** The $\alpha(\tau)$ schedule was calibrated (tuned) on the same January 2026 held-out validation window on which RMSE is reported; the reported +2.27% mean gain over persistence therefore reflects in-distribution schedule fitting rather than an independently validated improvement. Evaluation on a disjoint seasonal split (e.g., calibrate on December, evaluate on January) is required to establish generalisation.
 
 ### 2. Multi-Berg, Multi-Window Iceberg Drift Validation (BYU/USNIC Satellite Passes)
 Evaluated across **10 icebergs** and **60 multi-day satellite observation windows** with per-berg estimated drift velocity executed via the real 2D hydrodynamic momentum drift engine:
@@ -359,6 +359,8 @@ Evaluated across **10 icebergs** and **60 multi-day satellite observation window
 | **90th Percentile ($p_{90}$)** | **18.1 km** | 20.9 km |
 | **Ensemble Cone Calibration ($P_{10}$–$P_{90}$)** | **90.0% coverage** (54/60 inside cone) | N/A (Deterministic) |
 
+*Calibration note:* A nominal $P_{10}$–$P_{90}$ interval should cover approximately 80% of observations. The 90.0% observed coverage (54/60) indicates the ensemble cones are **over-wide** (too conservative). The `uncertainty_km` growth-rate formula `max(1.5, (σ_lat · 111 + hour · 0.35) · 1.5)` should be recalibrated against held-out windows to target 80% coverage.
+
 ### 3. Routing Pareto Frontiers (Cape Town $\rightarrow$ Bharati Station, PC5 Vessel)
 Evaluated under both standard baseline and late-season Marginal Ice Zone (MIZ) stress conditions:
 
@@ -367,11 +369,13 @@ Evaluated under both standard baseline and late-season Marginal Ice Zone (MIZ) s
   - **Balanced Route:** $3092.1\text{ NM}$, $9.54\text{ d}$, $197.1\text{ MT MGO}$, Min RIO $30$
   - **Eco-Fuel Route:** $3094.3\text{ NM}$, $12.28\text{ d}$, $144.9\text{ MT MGO}$, Min RIO $30$ ($-26.5\%$ fuel savings vs Balanced)
   - **Maximum Safety:** $3219.9\text{ NM}$, $11.67\text{ d}$, $166.7\text{ MT MGO}$, Min RIO $30$
-- **Late-Season Marginal Ice Zone (MIZ) Stress Scenario (Varying RIOs):**
-  - **Fastest Transit:** $3050.7\text{ NM}$, $9.26\text{ d}$, $235.6\text{ MT MGO}$, **Min RIO 12** (heavy ice penetration)
-  - **Balanced Route:** $3092.1\text{ NM}$, $10.40\text{ d}$, $208.0\text{ MT MGO}$, **Min RIO 12**
-  - **Eco-Fuel Route:** $3093.2\text{ NM}$, $13.43\text{ d}$, $160.1\text{ MT MGO}$, **Min RIO 12**
-  - **Maximum Safety:** $3227.9\text{ NM}$, $12.70\text{ d}$, $180.5\text{ MT MGO}$, **Min RIO 12** (outer perimeter lead)
+- **Late-Season MIZ Stress Test (Synthetic Scenario — High-Risk Leg Fraction):**
+  > **Note:** The MIZ ice field is a synthetic latitude/longitude gradient formula, not real forecast data. All four routes end at the same destination (69°S, 76°E) so the minimum POLARIS RIO is identical across modes. **High-Risk Leg Fraction** (fraction of en-route waypoints with RIO < 0) is reported instead, as it varies by mode.
+  - **Fastest Transit:** $3050.7\text{ NM}$, $9.26\text{ d}$, $235.6\text{ MT MGO}$, Min RIO $12$ (all modes)
+  - **Balanced Route:** $3092.1\text{ NM}$, $10.40\text{ d}$, $208.0\text{ MT MGO}$, Min RIO $12$
+  - **Eco-Fuel Route:** $3093.2\text{ NM}$, $13.43\text{ d}$, $160.1\text{ MT MGO}$, Min RIO $12$
+  - **Maximum Safety:** $3227.9\text{ NM}$, $12.70\text{ d}$, $180.5\text{ MT MGO}$, Min RIO $12$
+  - *(Run `python evaluation/run_evaluation.py` to see per-mode High-Risk Leg Fractions which differentiate the routes.)*
 
 ---
 

@@ -343,13 +343,14 @@ def evaluate_routing_corridors() -> Dict[str, Any]:
             "transit_days": r["total_transit_days"],
             "fuel_mt": r["total_fuel_mt"],
             "min_polaris_rio": r["minimum_polaris_rio"],
+            "high_risk_leg_fraction": r.get("high_risk_leg_fraction", 0.0),
             "safety_score": r["overall_safety_score"],
             "polaris_compliance": r["polaris_compliance"]
         }
-        print(f"  [Late-Season MIZ] {mode.upper()}: Dist={r['total_distance_nm']} NM, Time={r['total_transit_days']}d, Fuel={r['total_fuel_mt']} MT, Min RIO={r['minimum_polaris_rio']}")
+        print(f"  [Late-Season MIZ] {mode.upper()}: Dist={r['total_distance_nm']} NM, Time={r['total_transit_days']}d, Fuel={r['total_fuel_mt']} MT, Min RIO={r['minimum_polaris_rio']}, High-Risk Legs={r.get('high_risk_leg_fraction', 0.0):.1%}")
 
     return {
-        "voyage": "Port of Cape Town (-33.918°, 18.423°) to Bharati Station (-69.407°, 76.187°)",
+        "voyage": "Port of Cape Town (-33.918\u00b0, 18.423\u00b0) to Bharati Station (-69.407\u00b0, 76.187\u00b0)",
         "vessel_class": "PC5 (MV Vasiliy Golovnin)",
         "standard_scenario": {
             "modes": std_comparison,
@@ -357,7 +358,7 @@ def evaluate_routing_corridors() -> Dict[str, Any]:
         },
         "late_season_miz_scenario": {
             "modes": miz_comparison,
-            "description": "Marginal Ice Zone late-season scenario forcing trade-offs between transit speed (fast penetration), fuel efficiency, and ice safety (avoiding heavy pack ice)."
+            "description": "Synthetic late-season MIZ scenario: SIC field is a latitude/longitude gradient formula (not real forecast data) applied for stress-testing. All routes share the same destination SIC and Min RIO; use High-Risk Leg Fraction (fraction of en-route waypoints with POLARIS RIO < 0) to compare safety exposure across modes."
         }
     }
 
@@ -451,7 +452,7 @@ Evaluated against the standard Persistence Baseline and Climatology across 1-to-
 - **Hybrid Forecaster Avg RMSE:** **{sea_ice_res['summary']['avg_convlstm_rmse']}** (vs Persistence: {sea_ice_res['summary']['avg_persistence_rmse']}, **{sea_ice_res['summary']['avg_rmse_improvement_pct']:+.2f}%**)
 - **Standalone Raw ConvLSTM Avg RMSE:** **{sea_ice_res['summary'].get('avg_raw_convlstm_rmse', 'N/A')}**
 - **Average Integrated Ice Edge Error (IIEE) Reduction:** **{sea_ice_res['summary']['avg_iiee_reduction_pct']:+.2f}%**
-- **Model Mechanics & Operational Reality:** Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\\alpha(\\tau) = \\min(0.35, 0.018 \\cdot (\\tau - 1)^{{1.5}})$. Note: The $\\alpha(\\tau)$ schedule was calibrated on the validation window; validation across broader seasonal splits is recommended.
+- **Model Mechanics & Operational Reality:** Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\\alpha(\\tau) = \\min(0.35, 0.018 \\cdot (\\tau - 1)^{{1.5}})$. **Transparency note:** The $\\alpha(\\tau)$ schedule was calibrated (tuned) on the same January 2026 held-out validation window on which RMSE is reported; the reported +2.27% mean gain over persistence reflects in-distribution schedule fitting. Evaluation on a disjoint seasonal split (e.g., calibrate on December, evaluate on January) is required to establish generalisation.
 
 ---
 
@@ -469,6 +470,8 @@ Evaluated across **{drift_res['icebergs_evaluated_count']} icebergs** and **{dri
 | **90th Percentile ($p_{{90}}$)** | **{drift_res['physics_error_distribution']['p90_km']} km** | {drift_res['dead_reckoning_error_distribution']['p90_km']} km |
 
 - **Uncertainty Cone Calibration ($P_{{10}}$–$P_{{90}}$ coverage):** **{drift_res['cone_calibration_pct']}%** of ground-truth satellite fixes fall inside the projected ensemble envelope.
+
+> **Calibration note:** A nominal $P_{{10}}$–$P_{{90}}$ interval should cover ~80% of observations. The observed {drift_res['cone_calibration_pct']}% coverage indicates the ensemble cones are **over-wide** (too conservative). The `uncertainty_km` growth-rate formula should be recalibrated against held-out windows to target 80% coverage.
 
 ### Sample Track Windows:
 | Iceberg ID | Window (h) | Initial Speed | Physics Error (km) | Dead-Reckoning Error (km) | In Cone ($P_{{10}}$-$P_{{90}}$) |
@@ -495,14 +498,18 @@ Evaluation of vessel routing trade-offs for a Polar Class 5 vessel (*MV Vasiliy 
         md += f"| **{m_val['mode_name']}** | {m_val['distance_nm']} NM | {m_val['transit_days']} d | {m_val['fuel_mt']} MT | RIO {m_val['min_polaris_rio']} | {m_val['polaris_compliance']} |\n"
 
     md += f"""
-### Scenario B: Late-Season Marginal Ice Zone (MIZ) Stress Test
-Demonstrates authentic multi-objective trade-offs between transit duration, fuel consumption, and POLARIS RIO:
+### Scenario B: Late-Season Marginal Ice Zone (MIZ) Stress Test — Synthetic Scenario
+**Important:** The MIZ ice field is a synthetic latitude/longitude gradient formula — it is not derived from
+real forecast data or trained models. Because all four routes share the same fixed destination (69°S, 76°E),
+the minimum POLARIS RIO at the destination is identical across modes. **High-Risk Leg Fraction** (fraction of
+en-route waypoints with POLARIS RIO < 0) is the meaningful differentiating metric — it varies by mode because
+aggressive routes cut through more ice-covered mid-latitude waypoints.
 
-| Route Corridor | Distance (NM) | Transit Duration (Days) | Fuel Burn (MT) | Min POLARIS RIO | Operational Profile |
+| Route Corridor | Distance (NM) | Transit Duration (Days) | Fuel Burn (MT) | High-Risk Leg Fraction | Min RIO (all same) |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 """
     for m_key, m_val in miz_modes.items():
-        md += f"| **{m_val['mode_name']}** | {m_val['distance_nm']} NM | {m_val['transit_days']} d | {m_val['fuel_mt']} MT | **RIO {m_val['min_polaris_rio']}** | {m_val['polaris_compliance']} |\n"
+        md += f"| **{m_val['mode_name']}** | {m_val['distance_nm']} NM | {m_val['transit_days']} d | {m_val['fuel_mt']} MT | **{m_val.get('high_risk_leg_fraction', 0.0):.1%}** | RIO {m_val['min_polaris_rio']} |\n"
 
     rej = route_res.get("standard_scenario", {}).get("rejection_analysis", {})
     md += f"""

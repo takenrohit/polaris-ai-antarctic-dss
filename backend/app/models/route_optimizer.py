@@ -50,9 +50,14 @@ class PolarRouteOptimizer:
     def get_forecasted_sic(self, lat: float, lon: float, arrival_hours: float, scenario: str = "STANDARD") -> float:
         """
         Samples sea-ice concentration from the 4D spatiotemporal forecast at vessel arrival time.
-        In 'LATE_SEASON_MIZ' scenario, models late-season freeze-up where sea-ice expands equatorward
-        from the Antarctic continent, creating an authentic Marginal Ice Zone gradient based purely
-        on spatial coordinates and temporal progression, without hard-coding by route mode.
+        In 'LATE_SEASON_MIZ' scenario, applies a synthetic freeze-up SIC gradient (not real forecast data)
+        to stress-test route differentiation. The field is constructed from spatial coordinates only,
+        so all routes share the same destination SIC and Min RIO. Use `high_risk_leg_fraction` to
+        compare routes — it counts the fraction of en-route waypoints with POLARIS RIO < 0, which
+        does vary by mode because aggressive routes drive through more ice-covered mid-latitude waypoints.
+
+        NOTE: The 'LATE_SEASON_MIZ' ice field is a synthetic scenario for stress-testing;
+        it is not derived from real observations or a trained model.
         """
         base_sic = self.ice_predictor.get_predicted_sic(lat, lon, lead_hours=arrival_hours)
         if scenario == "LATE_SEASON_MIZ" and lat < -60.0:
@@ -618,6 +623,14 @@ class PolarRouteOptimizer:
 
         safety_score = max(10, min(99, int(50 + (min_rio * 3.5) - (max_ice_conc * 25.0))))
 
+        # Fraction of en-route waypoints with POLARIS RIO < 0 ("high-risk leg fraction").
+        # This metric differentiates routes in the MIZ scenario because aggressive modes drive through
+        # more ice-covered waypoints mid-route, while safest routes stay in cleaner open-water lanes.
+        # Min RIO alone is dominated by the shared destination waypoint and does not separate routes.
+        n_legs_total = max(1, len(waypoint_details))
+        n_high_risk = sum(1 for wp in waypoint_details if wp.get("polaris_rio", 30) < 0)
+        high_risk_leg_fraction = round(n_high_risk / n_legs_total, 3)
+
         return {
             "mode": mode,
             "mode_name": mode_names.get(mode, mode),
@@ -628,6 +641,7 @@ class PolarRouteOptimizer:
             "avg_speed_knots": round(total_dist_nm / max(1.0, total_hours), 1),
             "max_ice_concentration_pct": round(max_ice_conc * 100.0, 1),
             "minimum_polaris_rio": int(min_rio),
+            "high_risk_leg_fraction": high_risk_leg_fraction,
             "overall_safety_score": safety_score,
             "polaris_compliance": "COMPLIANT" if min_rio >= 0 else "SUBJECT_TO_SPECIAL_CONSIDERATION",
             "waypoints": waypoint_details

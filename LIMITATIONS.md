@@ -50,6 +50,15 @@
 ### 1. Pure ConvLSTM Spatial Diffusion
 - Standalone recursive ConvLSTM rollouts over multi-day horizons exhibit numerical diffusion and spatial smoothing, leading the standalone network to underperform persistence on this polar grid (7-day mean RMSE: 0.0462 vs 0.0353).
 
-### 2. Empirical Horizon Blending Schedule ($\alpha(\tau)$)
+### 2. Empirical Horizon Blending Schedule ($\alpha(\tau)$) — In-Distribution Calibration
 - Operational forecasting gains (+2.27% mean, +4.70% at Day 7) are achieved through a physics-guided hybrid combining kinematic wind advection, thermodynamic melt trends, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$.
-- This schedule was empirically calibrated on the validation window (January 2026). While it encodes valid physical intuition (persistence dominates Day 1 while advection/thermodynamics govern extended horizons), validation across broader multi-seasonal test regimes is required prior to unmonitored operational deployment.
+- **Critical limitation:** The schedule coefficients (0.35 cap, 0.018 base, 1.5 exponent) and the neural residual weight (0.02) were hand-tuned on the January 2026 validation window — the same window on which the reported RMSE gains are measured. This constitutes in-distribution schedule fitting, not independent generalisation.
+- A disjoint-period evaluation (e.g. calibrate on December, evaluate on January) is required to establish whether the gain survives to a genuinely unseen period.
+
+### 3. Iceberg Ensemble Cone Over-Width
+- The ensemble uncertainty cone ($P_{10}$–$P_{90}$) achieves 90.0% observed coverage (54/60 windows) against a nominal 80% interval. This indicates the cones are **over-conservative** (too wide), eroding operational utility by enlarging no-go zones unnecessarily.
+- The `uncertainty_km` growth-rate formula (`max(1.5, (σ_lat · 111 + hour · 0.35) · 1.5)`) should be recalibrated against held-out windows to target ~80% coverage.
+
+### 4. MIZ Stress Test Uses a Synthetic Ice Field
+- The Late-Season Marginal Ice Zone (MIZ) stress test applies a synthetic latitude/longitude gradient SIC formula — not real forecast data or trained model output. This was designed to stress-test routing differentiation, not to represent a real observed scenario.
+- Because all four routes share the same fixed destination (69°S, 76°E), the minimum POLARIS RIO is dominated by the destination waypoint and is identical across modes. The **High-Risk Leg Fraction** metric (fraction of en-route waypoints with RIO < 0) should be used to compare modes in this scenario.

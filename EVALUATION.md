@@ -25,7 +25,7 @@ Evaluated against the standard Persistence Baseline and Climatology across 1-to-
 - **Hybrid Forecaster Avg RMSE:** **0.0345** (vs Persistence: 0.0353, **+2.27%**)
 - **Standalone Raw ConvLSTM Avg RMSE:** **0.0462**
 - **Average Integrated Ice Edge Error (IIEE) Reduction:** **-3.05%**
-- **Model Mechanics & Operational Reality:** Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. Note: The $\alpha(\tau)$ schedule was calibrated on the validation window; validation across broader seasonal splits is recommended.
+- **Model Mechanics & Operational Reality:** Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. **Transparency note:** The $\alpha(\tau)$ schedule was calibrated (tuned) on the same January 2026 held-out validation window on which RMSE is reported; the reported +2.27% mean gain over persistence reflects in-distribution schedule fitting. Evaluation on a disjoint seasonal split (e.g., calibrate on December, evaluate on January) is required to establish generalisation.
 
 ---
 
@@ -43,6 +43,8 @@ Evaluated across **10 icebergs** and **60 multi-day windows** from the BYU/USNIC
 | **90th Percentile ($p_{90}$)** | **18.1 km** | 20.9 km |
 
 - **Uncertainty Cone Calibration ($P_{10}$–$P_{90}$ coverage):** **90.0%** of ground-truth satellite fixes fall inside the projected ensemble envelope.
+
+> **Calibration note:** A nominal $P_{10}$–$P_{90}$ interval should cover ~80% of observations. The observed 90.0% coverage (54/60 windows) indicates the ensemble cones are **over-wide** (too conservative). The `uncertainty_km` growth-rate formula should be recalibrated against held-out windows to target 80% coverage.
 
 ### Sample Track Windows:
 | Iceberg ID | Window (h) | Initial Speed | Physics Error (km) | Dead-Reckoning Error (km) | In Cone ($P_{10}$-$P_{90}$) |
@@ -72,15 +74,18 @@ Evaluation of vessel routing trade-offs for a Polar Class 5 vessel (*MV Vasiliy 
 | **Minimum Transit Time (Direct Icebreaker Path)** | 3022.1 NM | 8.43 d | 224.3 MT | RIO 29 | COMPLIANT |
 | **Eco-Polar Fuel-Optimized Route** | 3094.3 NM | 12.28 d | 144.9 MT | RIO 30 | COMPLIANT |
 
-### Scenario B: Late-Season Marginal Ice Zone (MIZ) Stress Test
-Demonstrates authentic multi-objective trade-offs between transit duration, fuel consumption, and POLARIS RIO:
+### Scenario B: Late-Season Marginal Ice Zone (MIZ) Stress Test — Synthetic Scenario
 
-| Route Corridor | Distance (NM) | Transit Duration (Days) | Fuel Burn (MT) | Min POLARIS RIO | Operational Profile |
+> **Important:** The MIZ ice field is a synthetic latitude/longitude gradient formula — not derived from real forecast data or trained models. All four routes share the same fixed destination (69°S, 76°E), so the minimum POLARIS RIO at the destination is identical across modes. **High-Risk Leg Fraction** (fraction of en-route waypoints with POLARIS RIO < 0) is the meaningful differentiating metric: it varies by mode because aggressive routes cut through more ice-covered mid-latitude waypoints.
+
+| Route Corridor | Distance (NM) | Transit Duration (Days) | Fuel Burn (MT) | High-Risk Leg Fraction | Min RIO (all same) |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| **Balanced Polar Expedition Route** | 3092.1 NM | 10.4 d | 208.0 MT | **RIO 12** | COMPLIANT |
-| **Maximum Safety & Iceberg Stand-Off Route** | 3227.9 NM | 12.7 d | 180.5 MT | **RIO 12** | COMPLIANT |
-| **Minimum Transit Time (Direct Icebreaker Path)** | 3050.7 NM | 9.26 d | 235.6 MT | **RIO 12** | COMPLIANT |
-| **Eco-Polar Fuel-Optimized Route** | 3093.2 NM | 13.43 d | 160.1 MT | **RIO 12** | COMPLIANT |
+| **Balanced Polar Expedition Route** | 3092.1 NM | 10.4 d | 208.0 MT | *(run evaluation script)* | RIO 12 |
+| **Maximum Safety & Iceberg Stand-Off Route** | 3227.9 NM | 12.7 d | 180.5 MT | *(run evaluation script)* | RIO 12 |
+| **Minimum Transit Time (Direct Icebreaker Path)** | 3050.7 NM | 9.26 d | 235.6 MT | *(run evaluation script)* | RIO 12 |
+| **Eco-Polar Fuel-Optimized Route** | 3093.2 NM | 13.43 d | 160.1 MT | *(run evaluation script)* | RIO 12 |
+
+*Run `python evaluation/run_evaluation.py` to populate the High-Risk Leg Fraction column with live computed values.*
 
 **Direct Track Rejection Analysis:**
 - Unconstrained Great Circle Track: `ACCEPTED`

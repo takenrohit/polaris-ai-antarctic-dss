@@ -242,8 +242,13 @@ class SeaIcePredictor:
             advected = map_coordinates(day0_sic, coords, order=1, mode='nearest')
             thermo_corrected = np.clip(advected + mean_melt_per_day * tau * 0.7, 0.0, 1.0)
 
-            # Empirical horizon blending schedule:
-            # Calibrated to balance persistence fidelity at short lead times with advective-thermodynamic trends
+            # Empirical horizon blending schedule alpha(tau) = min(0.35, 0.018 * (tau-1)^1.5)
+            # TRANSPARENCY NOTE: The coefficients (0.35 cap, 0.018 base, 1.5 exponent) were
+            # hand-fitted on the January 2026 validation window (Days 15-21) — the same window
+            # on which RMSE is reported. The 0.02 neural-residual weight was also chosen on this
+            # window. The reported +2.27% mean RMSE improvement over persistence therefore
+            # reflects in-distribution schedule fitting, not independently validated generalisation.
+            # A disjoint-period evaluation (calibrate on December, report on January) is needed.
             alpha = min(0.35, 0.018 * ((tau - 1)**1.5))
             nn_residual = nn_deltas[t] if t < len(nn_deltas) else 0.0
             pred_t = np.clip((1.0 - alpha) * day0_sic + alpha * thermo_corrected + 0.02 * nn_residual, 0.0, 1.0)
