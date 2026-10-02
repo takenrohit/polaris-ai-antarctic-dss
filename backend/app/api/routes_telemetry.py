@@ -37,7 +37,7 @@ async def websocket_telemetry_endpoint(websocket: WebSocket):
     instantaneous POLARIS RIO operational states for bridge interface demonstration.
     """
     await websocket.accept()
-    vessels = vessel_service.list_vessels()
+    vessels = vessel_service.list_vessels(enrich_live_weather=False)
 
     try:
         step = 0

@@ -3,7 +3,7 @@
 **Dataset Verification:** Ingested CF-1.8 NetCDF-4 Metocean Store (NOAA/NSIDC G02135 + ECMWF ERA5)  
 **Evaluation Protocol:** Strictly Held-Out Validation Window (Days 15–21, January 2026)  
 **Metrics Reporting:** Plain signed metrics with NO clamping; authentic persistence comparison.  
-**Generated:** 2026-10-02 03:38:27 UTC  
+**Generated:** 2026-10-02 12:02:25 UTC  
 
 ---
 

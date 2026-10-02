@@ -218,11 +218,21 @@ class SeaIcePredictor:
         )
         meta = environmental_data_provider.metadata()
         cap, base, exp = res["alpha_params"]
+        obs_iso = meta["latest_observation_iso"] or ""
+        # Check if observation date is in January (summer regime)
+        is_january = "-01-" in obs_iso or obs_iso.startswith("2026-01") or obs_iso.endswith("-01T")
+        season_warning = None if is_january else (
+            "Observation date is outside the January summer training regime. "
+            "ConvLSTM neural weights were trained exclusively on January melt dynamics; "
+            "kinematic advection and rolling alpha schedule adapt dynamically, but neural skill is unverified in this season."
+        )
+
         return {
             "days_ahead": days_ahead,
             "forecast_mode": "live",
             "base_observation_iso": meta["latest_observation_iso"],
             "data_age_hours": meta["data_age_hours"],
+            "seasonal_regime_warning": season_warning,
             "latitudes": lat_grid.tolist(),
             "longitudes": lon_grid.tolist(),
             "ground_truth_day0": np.round(res["baseline"], 3).tolist(),
@@ -241,6 +251,11 @@ class SeaIcePredictor:
                 "evaluation_split": "None - operational forecast, no ground truth exists yet",
                 "alpha_params": {"cap": cap, "base": base, "exp": exp,
                                  "fitted_on": "oldest 14 days of the rolling window"},
+                "seasonal_training_scope": "January summer regime ONLY (weights frozen)",
+                "proxies_used": {
+                    "currents": "climatological_proxy (analytic ACC/coastal formula; NOT CMEMS)",
+                    "sst": "proxy: 2 m air temperature (NOT satellite SST)"
+                },
                 "verdict": "Operational forecast from the newest observed day. Skill of this hybrid "
                            "is comparable to persistence on the one validated window (see EVALUATION.md)."
             }
@@ -400,10 +415,43 @@ class SeaIcePredictor:
                 "rmse_improvement_pct": improvement_pct
             })
 
+        from scipy import stats
+
         avg_model_rmse = round(float(np.mean([m["convlstm_rmse"] for m in metrics])), 4)
         avg_raw_rmse = round(float(np.mean([m["raw_convlstm_rmse"] for m in metrics])), 4)
         avg_persist_rmse = round(float(np.mean([m["persistence_rmse"] for m in metrics])), 4)
         avg_iiee_red = round(float(np.mean([m["iiee_reduction_pct"] for m in metrics])), 2)
+
+        # Statistical significance test: Paired two-tailed Student t-test on daily lead RMSEs
+        m_rmses = [m["convlstm_rmse"] for m in metrics]
+        p_rmses = [m["persistence_rmse"] for m in metrics]
+        t_stat, p_val = stats.ttest_rel(m_rmses, p_rmses)
+
+        # Spatial pixel paired test over ice-active ocean cells
+        active = (ground_truth >= 0.05) | (preds_array >= 0.05) | (persistence_preds >= 0.05)
+        if np.any(active):
+            m_abs = np.abs(preds_array[active] - ground_truth[active])
+            p_abs = np.abs(persistence_preds[active] - ground_truth[active])
+            spat_t_stat, spat_p_val = stats.ttest_rel(m_abs, p_abs)
+            pixels_n = int(len(m_abs))
+        else:
+            spat_t_stat, spat_p_val = t_stat, p_val
+            pixels_n = len(metrics)
+
+        significance_info = {
+            "test_type": "Paired two-tailed Student t-test (Model Error vs Persistence Error)",
+            "lead_horizon_n": len(metrics),
+            "lead_horizon_t_stat": round(float(t_stat), 4),
+            "lead_horizon_p_value": round(float(p_val), 5),
+            "spatial_pixels_n": pixels_n,
+            "spatial_t_stat": round(float(spat_t_stat), 4),
+            "spatial_p_value": float(np.format_float_scientific(spat_p_val, precision=4)),
+            "is_statistically_significant_p05": bool(p_val < 0.05 or spat_p_val < 0.05),
+            "interpretation": (
+                f"Lead-horizon paired t-test yields t={t_stat:.3f}, p={p_val:.4f}; spatial t={spat_t_stat:.3f}, p={spat_p_val:.2e}. "
+                + ("Statistically significant difference from persistence at alpha=0.05." if (p_val < 0.05 or spat_p_val < 0.05) else "Difference from persistence is not statistically significant at alpha=0.05; performance is statistically comparable.")
+            )
+        }
 
         return {
             "days_ahead": days_ahead,
@@ -427,7 +475,13 @@ class SeaIcePredictor:
                 "avg_raw_convlstm_rmse": avg_raw_rmse,
                 "avg_persistence_rmse": avg_persist_rmse,
                 "avg_iiee_reduction_pct": avg_iiee_red,
+                "statistical_significance": significance_info,
                 "evaluation_split": "Held-Out Verification Split (Days 15-21, January 2026)",
+                "seasonal_training_scope": "January summer regime ONLY (ConvLSTM weights frozen)",
+                "proxies_used": {
+                    "currents": "climatological_proxy (analytic ACC/coastal formula; NOT CMEMS)",
+                    "sst": "proxy: 2 m air temperature (NOT satellite SST)"
+                },
                 "model_class": "Hybrid Physics-Guided Forecaster: Spatiotemporal ConvLSTM Residuals + Kinematic Wind Advection + Thermodynamic Melt Trend (Empirical Horizon Blending Schedule alpha(tau))",
                 "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0462 vs Persistence 0.0353). The operational gain is comparable to persistence overall (+2.27% mean, modestly better at Days 5-7 reaching +4.55% at Day 7) and is achieved by the physics-guided hybrid blending framework. The alpha schedule is calibrated on an early January time-ordered split (Days 0-13, Jan 1-14) and evaluated on held-out late January (Days 14-20, Jan 15-21).",
                 "verdict": "Hybrid forecaster is comparable to persistence, modestly better at days 5-7 (+4.55% RMSE gain at Day 7) on held-out NSIDC/ERA5 observations."

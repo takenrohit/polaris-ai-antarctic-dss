@@ -7,6 +7,7 @@ Supports:
 - Local reference Metocean NetCDF datastore (NSIDC Sea Ice + ERA5 Wind/SST + CMEMS Currents)
 """
 import os
+import logging
 import sys
 import math
 import numpy as np
@@ -16,6 +17,8 @@ import netCDF4 as nc
 import xarray as xr
 from shapely.geometry import Point, Polygon, MultiPolygon
 from shapely.ops import prep
+
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parent.resolve()
 DEFAULT_NC_PATH = DATA_DIR / "antarctic_metocean_reference.nc"
@@ -356,7 +359,8 @@ class EnvironmentalDataProvider:
         Fetches live real-time atmospheric and marine metocean conditions from Open-Meteo
         (WMO global station network and ECMWF global real-time models).
         Includes 15-minute in-memory caching to eliminate redundant remote round-trips.
-        Falls back seamlessly to local CF-1.8 NetCDF metocean reference store if offline.
+        Falls back to local NetCDF metocean store if offline.
+        Uses the newest observed day index (not day 0) and returns nulls for unmeasured variables.
         """
         import urllib.request
         import json
@@ -366,7 +370,7 @@ class EnvironmentalDataProvider:
         now = time.time()
         if hasattr(self, "_live_weather_cache") and key in self._live_weather_cache:
             entry = self._live_weather_cache[key]
-            if now - entry["cached_at"] < 900:
+            if now - entry["cached_at"] < 900:  # 15 minutes TTL
                 return entry["data"]
 
         if not hasattr(self, "_live_weather_cache"):
@@ -382,49 +386,55 @@ class EnvironmentalDataProvider:
             f"&current=wave_height,wave_direction,wave_period"
         )
 
+        # Baseline fallback from local NetCDF at newest observed index
+        newest_idx = max(0, self.n_obs - 1)
         u10, v10 = self.get_wind(lat, lon, hour_offset=0)
         w_speed_ms = math.sqrt(u10**2 + v10**2)
         w_dir = (math.degrees(math.atan2(-u10, -v10)) + 360.0) % 360.0
-        sst = self.get_sst(lat, lon, day_idx=0)
-        sic = self.get_sic(lat, lon, day_idx=0)
+        sst = self.get_sst(lat, lon, day_idx=newest_idx)
+        sic = self.get_sic(lat, lon, day_idx=newest_idx)
 
         fallback_result = {
             "latitude": round(lat, 4),
             "longitude": round(lon, 4),
             "is_live": False,
-            "data_source": "Local Reference Store (CF-1.8 NetCDF / ECMWF ERA5 + NSIDC)",
-            "temperature_c": round(sst, 1),
-            "temperature_2m_c": round(sst, 1),
+            "data_source": f"Local Metocean Store ({self.nc_path.name}, offline fallback)",
+            "temperature_c": round(sst, 1) if sst is not None else None,
+            "temperature_2m_c": round(sst, 1) if sst is not None else None,
             "wind_speed_ms": round(w_speed_ms, 2),
             "wind_speed_knots": round(w_speed_ms * 1.94384, 1),
             "wind_direction_deg": round(w_dir, 1),
-            "surface_pressure_hpa": 985.0,
-            "relative_humidity_pct": 75.0,
-            "sea_ice_concentration_pct": round(sic * 100.0, 1),
-            "wave_height_m": 1.5 if sic < 0.15 else 0.2
+            "surface_pressure_hpa": None,
+            "relative_humidity_pct": None,
+            "sea_ice_concentration_pct": round(sic * 100.0, 1) if sic is not None else None,
+            "wave_height_m": None,
         }
 
+        # Attempt live API fetch
         try:
             req = urllib.request.Request(weather_url, headers={"User-Agent": "POLARIS-AI/1.0 (MoES/NCPOR Polar DSS)"})
             with urllib.request.urlopen(req, timeout=timeout_s) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 cur = data.get("current", {})
+                w_speed_10m = cur.get("wind_speed_10m")
                 live_res = {
                     "latitude": round(lat, 4),
                     "longitude": round(lon, 4),
                     "is_live": True,
-                    "data_source": "Open-Meteo Real-Time Global Metocean Feed (In-Situ WMO/ECMWF)",
+                    "data_source": "Open-Meteo Real-Time Weather API (WMO/ECMWF NWP)",
                     "timestamp_utc": cur.get("time"),
                     "temperature_c": cur.get("temperature_2m"),
                     "temperature_2m_c": cur.get("temperature_2m"),
-                    "wind_speed_ms": cur.get("wind_speed_10m"),
-                    "wind_speed_knots": round(cur.get("wind_speed_10m", 0.0) * 1.94384, 1),
+                    "wind_speed_ms": w_speed_10m,
+                    "wind_speed_knots": round(w_speed_10m * 1.94384, 1) if w_speed_10m is not None else None,
                     "wind_direction_deg": cur.get("wind_direction_10m"),
                     "surface_pressure_hpa": cur.get("surface_pressure"),
                     "relative_humidity_pct": cur.get("relative_humidity_2m"),
-                    "sea_ice_concentration_pct": round(sic * 100.0, 1)
+                    "sea_ice_concentration_pct": round(sic * 100.0, 1) if sic is not None else None,
+                    "wave_height_m": None,
                 }
 
+                # Try marine wave query
                 try:
                     req_m = urllib.request.Request(marine_url, headers={"User-Agent": "POLARIS-AI/1.0"})
                     with urllib.request.urlopen(req_m, timeout=2.0) as resp_m:
@@ -433,13 +443,14 @@ class EnvironmentalDataProvider:
                         live_res["wave_height_m"] = cur_m.get("wave_height")
                         live_res["wave_direction_deg"] = cur_m.get("wave_direction")
                         live_res["wave_period_s"] = cur_m.get("wave_period")
-                except Exception:
-                    live_res["wave_height_m"] = fallback_result["wave_height_m"]
+                except Exception as exc:
+                    logger.debug("Live marine wave query unavailable for (%.2f, %.2f): %s", lat, lon, exc)
 
                 self._live_weather_cache[key] = {"cached_at": now, "data": live_res}
                 return live_res
         except Exception as e:
-            fallback_result["fetch_note"] = f"Live weather unavailable ({e}); using local high-resolution NetCDF store."
+            logger.debug("Live weather query failed for (%.2f, %.2f): %s; returning offline fallback", lat, lon, e)
+            fallback_result["fetch_note"] = f"Live weather unavailable ({e}); using local store fallback."
             self._live_weather_cache[key] = {"cached_at": now, "data": fallback_result}
             return fallback_result
 

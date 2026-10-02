@@ -1,6 +1,6 @@
 {
   "sea_ice_forecasting": {
-    "dataset": "NOAA/NSIDC G02135 + ERA5 (Strictly Held-Out Window: Days 15-21)",
+    "dataset": "NOAA/NSIDC G02135 + ERA5 (Strictly Held-Out Window: Days 15-21, January 2026)",
     "summary": {
       "avg_convlstm_rmse": 0.0345,
       "avg_hybrid_rmse": 0.0345,
@@ -8,6 +8,18 @@
       "avg_persistence_rmse": 0.0353,
       "avg_rmse_improvement_pct": 2.27,
       "avg_iiee_reduction_pct": -1.2,
+      "statistical_significance": {
+        "test": "Paired two-tailed Student t-test on lead-horizon RMSE",
+        "t_statistic": -1.9594,
+        "p_value": 0.09777,
+        "is_significant_p05": false,
+        "sample_size": 7
+      },
+      "training_regime": "January Antarctic summer melt ONLY (2026-01-01 to 2026-01-14)",
+      "proxies_used": {
+        "currents": "climatological_proxy (analytic ACC/coastal formula; NOT CMEMS)",
+        "sst": "proxy: 2 m air temperature (NOT satellite SST)"
+      },
       "model_architecture": "Hybrid Physics-Guided Forecaster: Spatiotemporal ConvLSTM Residuals + Kinematic Wind Advection + Thermodynamic Melt Trend (Empirical Horizon Blending Schedule alpha(tau))",
       "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0462 vs Persistence 0.0353). The operational gain is comparable to persistence overall (+2.27% mean, modestly better at Days 5-7 reaching +4.55% at Day 7) and is achieved by the physics-guided hybrid blending framework. The alpha schedule is calibrated on an early January time-ordered split (Jan 1-14, targets Jan 8-14) and evaluated on held-out late January (Jan 15-21)."
     },
@@ -325,7 +337,7 @@
           "polaris_compliance": "COMPLIANT"
         }
       },
-      "description": "Synthetic late-season MIZ scenario: SIC field is a synthetic latitude/longitude gradient formula applied for stress-testing. All routes share the same destination (69\u00b0S, 76\u00b0E) so Min RIO at Bharati Station is identically 12 across all modes. Restricted Leg Fraction (fraction of en-route waypoints with POLARIS RIO <= 20, the speed-restriction / heavy ice band) differentiates modes: aggressive routes (FASTEST) drive directly through heavier ice pack (16.7%), while SAFEST avoids heavy ice until the final approach (12.5%)."
+      "description": "Synthetic late-season MIZ scenario: SIC field is a synthetic latitude/longitude gradient formula applied for stress-testing. All routes share the same destination (69\u00b0S, 76\u00b0E) so Min RIO at Bharati Station is identically 12 across all modes. Restricted Leg Fraction (fraction of corridor waypoints with POLARIS RIO <= 20 across 60 dense waypoints) differentiates modes: aggressive routes (FASTEST) drive directly through heavier ice pack (16.7%), while SAFEST incurs the lowest restricted fraction (13.3%) and BALANCED / ECO-FUEL maintain 15.0%."
     }
   },
   "ablation_studies": {
@@ -342,5 +354,5 @@
       "mgo_fuel_100nm_open_water_mt": 5.15
     }
   },
-  "timestamp_utc": "2026-10-02T03:38:27Z"
+  "timestamp_utc": "2026-10-02T12:02:25Z"
 }

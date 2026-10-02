@@ -1,7 +1,8 @@
-import React from 'react';
+﻿import React from 'react';
 import { 
   X, 
-  ShieldAlert
+  ShieldAlert,
+  Info
 } from 'lucide-react';
 
 export default function AlertDrawer({ isOpen, onClose, alerts }) {
@@ -12,7 +13,7 @@ export default function AlertDrawer({ isOpen, onClose, alerts }) {
       position: 'fixed',
       top: 0,
       right: 0,
-      width: '400px',
+      width: '420px',
       height: '100vh',
       backgroundColor: '#ffffff',
       borderLeft: '1px solid #cbd5e1',
@@ -32,13 +33,13 @@ export default function AlertDrawer({ isOpen, onClose, alerts }) {
         background: '#f8fafc'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <ShieldAlert style={{ width: '20px', height: '20px', color: '#dc2626' }} />
+          <ShieldAlert style={{ width: '20px', height: '20px', color: '#ea580c' }} />
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
-              NAVAREA & MoES Polar Alerts
+              Automated Scenario Advisories
             </h3>
             <span style={{ fontSize: '11px', color: '#64748b' }}>
-              Official Maritime Safety Information (MSI)
+              Rule-triggered alerts (illustrative, not official MSI)
             </span>
           </div>
         </div>
@@ -48,6 +49,14 @@ export default function AlertDrawer({ isOpen, onClose, alerts }) {
         >
           <X style={{ width: '18px', height: '18px' }} />
         </button>
+      </div>
+
+      {/* Official Disclaimer Banner */}
+      <div style={{ padding: '8px 16px', background: '#fffbeb', borderBottom: '1px solid #fef3c7', display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <Info style={{ width: '14px', height: '14px', color: '#d97706', flexShrink: 0 }} />
+        <span style={{ fontSize: '10px', color: '#92400e', lineHeight: '1.3' }}>
+          These advisories are rule-triggered simulation alerts computed from active environmental telemetry. They are <strong>not official NAVAREA, WMO, or government bulletins</strong>.
+        </span>
       </div>
 
       {/* Alert List */}
@@ -61,7 +70,7 @@ export default function AlertDrawer({ isOpen, onClose, alerts }) {
               style={{
                 padding: '14px',
                 borderColor: isCritical ? '#fecaca' : '#fde68a',
-                background: isCritical ? '#fef2f2' : '#fffbeb'
+                background: isCritical ? '#fef2f2' : '#ffffff'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -69,9 +78,13 @@ export default function AlertDrawer({ isOpen, onClose, alerts }) {
                   <span className={`polar-badge ${isCritical ? 'polar-badge-danger' : 'polar-badge-gold'}`} style={{ fontSize: '9px' }}>
                     {alert.severity}
                   </span>
-                  {alert.is_live && (
+                  {alert.is_live ? (
                     <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>
-                      LIVE BULLETIN
+                      LIVE FEED
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '9px', background: '#f1f5f9', color: '#475569', padding: '1px 5px', borderRadius: '4px', fontWeight: '600' }}>
+                      OFFLINE STORE
                     </span>
                   )}
                 </div>
@@ -79,7 +92,6 @@ export default function AlertDrawer({ isOpen, onClose, alerts }) {
                   {alert.id}
                 </span>
               </div>
-
 
               <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>
                 {alert.title}
@@ -89,18 +101,23 @@ export default function AlertDrawer({ isOpen, onClose, alerts }) {
                 {alert.description}
               </p>
 
-              <div style={{ padding: '7px 9px', background: '#ffffff', borderRadius: '6px', fontSize: '10px', marginBottom: '6px', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ padding: '7px 9px', background: '#f8fafc', borderRadius: '6px', fontSize: '10px', marginBottom: '6px', border: '1px solid rgba(0,0,0,0.06)' }}>
                 <div style={{ color: '#0284c7', fontWeight: '700', marginBottom: '1px' }}>
-                  Directive / Action Required:
+                  Rule-Recommended Action:
                 </div>
                 <div style={{ color: '#1e293b' }}>
                   {alert.recommended_action}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
-                <span>Source: {alert.source.split(' / ')[0]}</span>
-                <span>Lat: {alert.coordinates.lat}°S, {alert.coordinates.lon}°E</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '9px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{alert.source}</span>
+                  {alert.coordinates && <span>{Math.abs(alert.coordinates.lat).toFixed(2)}°S, {Math.abs(alert.coordinates.lon).toFixed(2)}°E</span>}
+                </div>
+                <div style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+                  {alert.disclaimer}
+                </div>
               </div>
             </div>
           );

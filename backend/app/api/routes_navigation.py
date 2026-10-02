@@ -54,9 +54,9 @@ def get_imo_polar_classes():
     return IMO_POLAR_CLASSES
 
 @router.get("/vessels")
-def get_ncpor_vessels():
-    """Returns active expedition vessels with live Antarctic positions."""
-    return vessel_service.list_vessels()
+def get_ncpor_vessels(live_weather: bool = Query(False, description="Enrich with live weather")):
+    """Returns active expedition vessels with Antarctic positions."""
+    return vessel_service.list_vessels(enrich_live_weather=live_weather)
 
 @router.post("/optimize")
 def optimize_polar_route(payload: RouteOptimizationRequest):

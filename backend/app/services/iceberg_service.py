@@ -1,3 +1,4 @@
+import logging
 import os
 import csv
 import io
@@ -6,6 +7,8 @@ from typing import List, Dict, Any, Optional
 import pandas as pd
 from ..config import INITIAL_ICEBERGS
 from ..models.iceberg_drift import iceberg_drift_engine
+
+logger = logging.getLogger(__name__)
 
 BYU_ARCHIVE_DIR = Path(__file__).resolve().parent.parent / "data" / "byu_icebergs" / "updated7_consol"
 
@@ -17,11 +20,7 @@ class IcebergService:
         }
         self.last_live_sync_utc: Optional[str] = None
         self.load_from_byu_archive()
-        # Attempt near-real-time satellite synchronization from BYU/ASCAT live feed
-        try:
-            self.sync_live_byu_feed(timeout_s=3.0)
-        except Exception:
-            pass
+        # Note: Do not make network calls on import/init. Live sync can be invoked on demand or via background tasks.
 
     def load_from_byu_archive(self):
         """Loads real satellite scatterometer observations from BYU/NIC consolidated archive."""
@@ -59,8 +58,8 @@ class IcebergService:
                         if sz2 > 0:
                             self.icebergs[berg_id]["width_km"] = sz2
                         self.icebergs[berg_id]["surveillance_source"] = f"BYU/USNIC Archive ({fname}, Obs {int(latest['date'])})"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Error loading BYU record %s: %s", fname, e)
 
     def sync_live_byu_feed(self, timeout_s: float = 4.0) -> Dict[str, Any]:
         """
@@ -69,47 +68,50 @@ class IcebergService:
         https://www.scp.byu.edu/current_icebergs.html (ASCAT & OSCAT-2 in tandem).
         Updates positions of existing tracked icebergs and registers active newly calved bergs.
         Falls back smoothly to local BYU archive if offline or network unreachable.
+        New bergs only receive observed positions (dimensions/mass/drift remain unassessed/null).
         """
         import urllib.request
         import re
         import time
 
         def parse_dms(val_str: str) -> float:
-            match = re.match(r'(\d+)\s+(\d+)\'?\s*([NSEWnsew])', val_str.strip())
+            match = re.match(r"(\d+)\s+(\d+)'?\s*([NSEWnsew])", val_str.strip())
             if not match:
                 return 0.0
             deg, m, hemi = match.groups()
             val = float(deg) + float(m) / 60.0
-            if hemi.upper() in ['S', 'W']:
+            if hemi.upper() in ["S", "W"]:
                 val = -val
             return round(val, 3)
 
+        def norm_key(k: str) -> str:
+            return k.replace("-", "").strip().upper()
+
         url = "https://www.scp.byu.edu/current_icebergs.html"
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) POLARIS-AI/1.0"})
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) POLARIS-AI/1.0"}
+            )
             with urllib.request.urlopen(req, timeout=timeout_s) as resp:
                 html = resp.read().decode("utf-8", errors="ignore")
 
-            rows = re.findall(r'<tr>\s*<td>([a-zA-Z0-9_-]+)</td>\s*<td>([^<]+)</td>\s*<td>([^<]+)</td>\s*<td>([^<]+)</td>\s*</tr>', html)
+            rows = re.findall(
+                r"<tr>\s*<td>([a-zA-Z0-9_-]+)</td>\s*<td>([^<]+)</td>\s*<td>([^<]+)</td>\s*<td>([^<]+)</td>\s*</tr>",
+                html
+            )
             if not rows:
                 return {"status": "NO_RECORDS_PARSED", "live_count": 0, "fallback": "local_archive"}
 
             updated_count = 0
             new_count = 0
 
-            shelf_thickness = {
-                "A": 300.0, # Weddell / Ronne-Filchner
-                "B": 240.0, # Ross Sea / Amundsen
-                "C": 210.0, # Wilkes Land / D'Urville
-                "D": 220.0  # Amery / Prydz Bay
-            }
-
             for name, lon_str, lat_str, doy_str in rows:
                 raw_name = name.strip()
-                norm_id = raw_name.upper()
-                m = re.match(r'([A-Z])(\d+)([A-Z]*)', norm_id)
+                row_key = norm_key(raw_name)
+                m = re.match(r"([A-Z])(\d+)([A-Z]*)", row_key)
                 quad = m.group(1) if m else "A"
-                canon_id = f"{quad}-{m.group(2)}{m.group(3).lower()}" if m else norm_id
+                canon_id = f"{quad}-{m.group(2)}{m.group(3).lower()}" if m else raw_name.upper()
 
                 lat = parse_dms(lat_str)
                 lon = parse_dms(lon_str)
@@ -119,10 +121,10 @@ class IcebergService:
                 doy = doy_str.strip()
                 source_str = f"BYU/ASCAT & OSCAT-2 Live Satellite Scatterometer Feed (DOY {doy})"
 
-                # Match existing or register
+                # Strict exact normalized key match: "B29" must NOT match "B29A"
                 matched_id = None
                 for existing_id in list(self.icebergs.keys()):
-                    if existing_id.upper().replace("-", "") == norm_id.replace("-", "") or existing_id.upper().startswith(canon_id.upper()):
+                    if norm_key(existing_id) == row_key:
                         matched_id = existing_id
                         break
 
@@ -134,28 +136,31 @@ class IcebergService:
                     self.icebergs[matched_id]["observation_doy"] = doy
                     updated_count += 1
                 else:
+                    # New iceberg from BYU live feed: BYU provides positions only!
+                    # Do NOT invent area, dimensions, mass, drift, or hazard level.
                     self.icebergs[canon_id] = {
                         "id": canon_id,
                         "name": f"Iceberg {canon_id}",
-                        "calving_source": f"Antarctic Quadrant {quad} Shelf",
+                        "calving_source": f"Antarctic Quadrant {quad} Shelf (unverified)",
                         "lat": lat,
                         "lon": lon,
-                        "area_km2": 450.0,
-                        "length_km": 25.0,
-                        "width_km": 15.0,
-                        "thickness_m": shelf_thickness.get(quad, 220.0),
-                        "mass_gt": 75.0,
-                        "drift_speed_knots": 0.8,
-                        "drift_bearing_deg": 315.0,
-                        "status": f"Active Satellite Track (DOY {doy})",
-                        "hazard_level": "HIGH" if lat > -65.0 else "MODERATE",
+                        "area_km2": None,
+                        "length_km": None,
+                        "width_km": None,
+                        "thickness_m": None,
+                        "mass_gt": None,
+                        "drift_speed_knots": None,
+                        "drift_bearing_deg": None,
+                        "status": f"Active Satellite Fix (DOY {doy}, BYU/ASCAT)",
+                        "hazard_level": "UNASSESSED",
+                        "geometry_measured": False,
                         "surveillance_source": source_str,
                         "is_live": True,
                         "observation_doy": doy
                     }
                     new_count += 1
 
-            self.last_live_sync_utc = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            self.last_live_sync_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             return {
                 "status": "LIVE_FEED_SYNCED",
                 "source_url": url,
@@ -165,6 +170,7 @@ class IcebergService:
                 "sync_timestamp_utc": self.last_live_sync_utc
             }
         except Exception as e:
+            logger.warning("Live BYU feed sync failed (%s); using local archive fallback", e)
             return {
                 "status": "OFFLINE_FALLBACK",
                 "reason": str(e),

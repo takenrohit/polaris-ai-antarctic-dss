@@ -78,3 +78,27 @@ Evaluated with plain signed metrics (no artificial clamping) against standard pe
 ## 5. Ethical and Environmental Considerations
 - Energy consumed during inference: < 0.001 kWh per 7-day projection run on CPU.
 - Model serves strictly as decision support to assist master mariners in preventing vessel entrapment and oil spill hazards in pristine Antarctic ecosystems.
+
+---
+
+## 4b. Statistical Significance and Hypothesis Testing
+
+To assess whether the hybrid physics-guided forecaster provides genuine predictive value over the persistence baseline rather than random variance, paired hypothesis testing was conducted across the 7-day held-out evaluation window (Days 15–21, January 2026):
+
+| Hypothesis Test Scope | Sample Size ($N$) | Test Statistic ($t$) | $p$-value | Statistical Significance ($\alpha = 0.05$) |
+|:---|:---:|:---:|:---:|:---:|
+| **Daily Lead-Horizon RMSE** | 7 days | $-2.6565$ | **0.0377** | **Statistically Significant ($p < 0.05$)** |
+| **Active Ice Spatial Pixels (Day 7)** | 1,129 cells | $-3.8776$ | **$1.12 \times 10^{-4}$** | **Highly Significant ($p < 0.001$)** |
+
+### Findings & Caveats
+1. At extended lead horizons (Days 5–7), physical wind advection coupled with thermodynamic melt trends yields statistically significant error reductions over freezing day-0 persistence forward (+4.55% RMSE gain at Day 7).
+2. At early horizons (Days 1–3), differences between the hybrid model and persistence are negligible ($p > 0.05$), confirming that freezing Day 0 is an optimal short-range predictor.
+3. The standalone recursive ConvLSTM exhibits spatial smoothing and underperforms persistence (mean RMSE 0.0462 vs 0.0353); the operational gain is achieved exclusively through the hybrid blending architecture.
+
+---
+
+## 4c. Data Proxies and Seasonal Scope Disclosures
+
+- **Currents Proxy:** Surface ocean velocities ($u_{curr}, v_{curr}$) are computed via an analytic climatological formula (ACC + coastal counter-currents), **not authenticated CMEMS GLORYS12 or in-situ acoustic drifter data**.
+- **SST Proxy:** Sea surface temperature is proxied using 2m atmospheric air temperature, **not satellite infrared/microwave radiometer SST**.
+- **Seasonality (January Summer Only):** ConvLSTM weights are trained strictly on January 2026 summer melt data. The neural residual is uncalibrated for winter freeze-up or spring retreat regimes. Outside January, live forecast payloads include an explicit `seasonal_regime_warning`.

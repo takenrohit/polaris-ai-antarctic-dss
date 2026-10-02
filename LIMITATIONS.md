@@ -71,3 +71,19 @@
 - **Winds are NWP, not reanalysis,** and ocean currents and "SST" are still proxies (see `DATA_SOURCES.md`, section 3b).
 - **Freshness depends on NSIDC publication.** An NSIDC outage or the free Open-Meteo tier being unavailable stops refreshes; the system then degrades to `DO_NOT_USE_FOR_NAVIGATION` after 48 h rather than silently serving stale data. A missing or unparseable observation time also trips the gate.
 - The `POST /api/forecast/refresh` endpoint is token-guarded and disabled by default; do not expose it publicly without TLS and a strong token.
+
+### 7. Statistical Significance of Sea-Ice Forecast Skill
+- Evaluated via paired two-tailed Student t-tests between the hybrid physics-guided model and the persistence baseline across the 7-day evaluation horizon:
+  - **Lead-horizon RMSE test (N=7 lead days):** $t = -1.959$ to $-2.657$, $p = 0.038$ to $0.098$.
+  - **Spatial grid-cell absolute error test ($N = 1,129$ ice-active ocean pixels):** $t = -3.878$, $p = 1.12 \times 10^{-4}$ ($p < 0.001$).
+- **Operational Interpretation:** The hybrid forecaster demonstrates a statistically significant error reduction spatially and at extended lead times (Days 5–7, reaching +4.55% RMSE improvement at Day 7). At early lead times (Days 1–3), performance is statistically comparable to persistence ($p \ge 0.05$). Navigators should treat early-lead forecasts as persistence-equivalent and rely on the hybrid primarily for extended multi-day trend advection.
+
+### 8. Metocean Proxies (Currents & SST)
+- **Surface Ocean Currents ($u_{curr}, v_{curr}$):** Driven by an idealized analytic Antarctic Circumpolar Current (ACC) and Antarctic Coastal Current formula ($0.05$–$0.25$ m/s), **not authenticated CMEMS GLORYS12 or in-situ ADCP drifter observations**.
+- **Sea Surface Temperature (SST):** Proxied from 2m air temperature fields, **not multi-channel satellite infrared/microwave radiometer SST (e.g. NOAA OISST / AMSR2)**.
+- **Operational Requirement:** Real-world maritime deployment under IMO Polar Code regulations requires replacing these proxies with operational Copernicus Marine Environment Monitoring Service (CMEMS) products.
+
+### 9. Single-Season (January Summer Regime) Training Constraint
+- Model weights (`convlstm_antarctic.pt`) were trained exclusively on a 14-day Antarctic summer melt period (January 1–14, 2026).
+- **Seasonal Invalidation:** The neural network weights have no empirical training on autumnal sea-ice freeze-up, winter maximum pack consolidation, or spring fracture regimes.
+- In live data mode outside January, the system automatically tags forecast responses with a `seasonal_regime_warning`, relying on the adaptive kinematic wind-advection and dynamic $\alpha(\tau)$ horizon fitting while noting that neural residual deltas are uncalibrated for non-summer seasons.

@@ -117,18 +117,26 @@ def evaluate_sea_ice_forecast() -> Dict[str, Any]:
             "persistence_brier": round(brier_pers, 4)
         })
 
+    from scipy import stats
+
     avg_model_rmse = round(float(np.mean([r["convlstm_rmse"] for r in horizon_results])), 4)
     avg_raw_rmse = round(float(np.mean([r["raw_convlstm_rmse"] for r in horizon_results])), 4)
     avg_pers_rmse = round(float(np.mean([r["persistence_rmse"] for r in horizon_results])), 4)
     avg_rmse_gain = round(((avg_pers_rmse - avg_model_rmse) / (avg_pers_rmse + 1e-9)) * 100.0, 2)
     avg_iiee_gain = round(float(np.mean([r["iiee_reduction_pct"] for r in horizon_results])), 2)
 
+    # Paired Student t-test on daily lead-horizon RMSEs
+    m_rmses = [r["convlstm_rmse"] for r in horizon_results]
+    p_rmses = [r["persistence_rmse"] for r in horizon_results]
+    t_stat, p_val = stats.ttest_rel(m_rmses, p_rmses)
+
     print(f"  -> Hybrid Forecaster Avg RMSE: {avg_model_rmse} vs Persistence Avg RMSE: {avg_pers_rmse} ({avg_rmse_gain:+.2f}%)")
     print(f"  -> Standalone Raw ConvLSTM Avg RMSE: {avg_raw_rmse} (spatial diffusion over 7 lead days)")
     print(f"  -> Average IIEE Reduction: {avg_iiee_gain:+.2f}%")
+    print(f"  -> Significance Test (Paired t-test): t = {t_stat:.3f}, p = {p_val:.4f} ({'Significant (p < 0.05)' if p_val < 0.05 else 'Statistically comparable (p >= 0.05)'})")
 
     return {
-        "dataset": "NOAA/NSIDC G02135 + ERA5 (Strictly Held-Out Window: Days 15-21)",
+        "dataset": "NOAA/NSIDC G02135 + ERA5 (Strictly Held-Out Window: Days 15-21, January 2026)",
         "summary": {
             "avg_convlstm_rmse": avg_model_rmse, # backward compat
             "avg_hybrid_rmse": avg_model_rmse,
@@ -136,6 +144,18 @@ def evaluate_sea_ice_forecast() -> Dict[str, Any]:
             "avg_persistence_rmse": avg_pers_rmse,
             "avg_rmse_improvement_pct": avg_rmse_gain,
             "avg_iiee_reduction_pct": avg_iiee_gain,
+            "statistical_significance": {
+                "test": "Paired two-tailed Student t-test on lead-horizon RMSE",
+                "t_statistic": round(float(t_stat), 4),
+                "p_value": round(float(p_val), 5),
+                "is_significant_p05": bool(p_val < 0.05),
+                "sample_size": len(horizon_results)
+            },
+            "training_regime": "January Antarctic summer melt ONLY (2026-01-01 to 2026-01-14)",
+            "proxies_used": {
+                "currents": "climatological_proxy (analytic ACC/coastal formula; NOT CMEMS)",
+                "sst": "proxy: 2 m air temperature (NOT satellite SST)"
+            },
             "model_architecture": "Hybrid Physics-Guided Forecaster: Spatiotemporal ConvLSTM Residuals + Kinematic Wind Advection + Thermodynamic Melt Trend (Empirical Horizon Blending Schedule alpha(tau))",
             "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0462 vs Persistence 0.0353). The operational gain is comparable to persistence overall (+2.27% mean, modestly better at Days 5-7 reaching +4.55% at Day 7) and is achieved by the physics-guided hybrid blending framework. The alpha schedule is calibrated on an early January time-ordered split (Jan 1-14, targets Jan 8-14) and evaluated on held-out late January (Jan 15-21)."
         },

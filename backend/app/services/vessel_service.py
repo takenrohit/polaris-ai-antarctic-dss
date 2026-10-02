@@ -1,3 +1,5 @@
+import logging
+import time
 """
 Vessel Service for NCPOR Indian Antarctic Research Fleet.
 Supports vessels like:
@@ -6,6 +8,8 @@ Supports vessels like:
 - ORV Sagar Nidhi (MoES Ice-strengthened Oceanographic Vessel)
 """
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 NCPOR_FLEET = [
     {
@@ -90,16 +94,39 @@ class VesselService:
         self.vessels: Dict[str, Dict[str, Any]] = {
             v["id"]: v.copy() for v in NCPOR_FLEET
         }
+        self._weather_cache: Dict[str, Dict[str, Any]] = {}
+        self._weather_cache_time: float = 0.0
 
-    def list_vessels(self, enrich_live_weather: bool = True) -> List[Dict[str, Any]]:
+    def list_vessels(self, enrich_live_weather: bool = False) -> List[Dict[str, Any]]:
+        """
+        Returns current fleet vessel telemetry.
+        enrich_live_weather defaults to False to prevent blocking the WebSocket/event loop.
+        When True, results are cached in-memory with a 15-minute TTL.
+        """
         from ..data.ingestion import environmental_data_provider
+
+        now = time.time()
         results = []
         for v in self.vessels.values():
             v_copy = dict(v)
             pos = dict(v_copy["current_position"])
             if enrich_live_weather:
-                try:
-                    lw = environmental_data_provider.get_live_weather(pos["lat"], pos["lon"], timeout_s=2.5)
+                v_id = v["id"]
+                cached = self._weather_cache.get(v_id)
+                if cached and (now - self._weather_cache_time < 900.0):
+                    lw = cached
+                else:
+                    try:
+                        lw = environmental_data_provider.get_live_weather(
+                            pos["lat"], pos["lon"], timeout_s=2.5
+                        )
+                        self._weather_cache[v_id] = lw
+                        self._weather_cache_time = now
+                    except Exception as exc:
+                        logger.warning("Vessel %s live weather query failed: %s", v_id, exc)
+                        lw = {}
+
+                if lw:
                     pos["ambient_temp_c"] = lw.get("temperature_c")
                     pos["wind_speed_knots"] = lw.get("wind_speed_knots")
                     pos["wind_direction_deg"] = lw.get("wind_direction_deg")
@@ -109,8 +136,6 @@ class VesselService:
                     pos["weather_source"] = lw.get("data_source")
                     pos["weather_is_live"] = lw.get("is_live", False)
 
-                except Exception:
-                    pass
             v_copy["current_position"] = pos
             results.append(v_copy)
         return results
