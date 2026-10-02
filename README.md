@@ -345,10 +345,10 @@ Evaluated with plain signed metrics (no artificial clamping) against standard pe
 | **Persistence Baseline** | 0.0121 | 0.0261 | 0.0448 | 0.0603 | 0.0353 | Reference |
 | **Hybrid Forecaster (Advection + ConvLSTM)** | **0.0122** | **0.0262** | **0.0441** | **0.0576** | **0.0345** | **+2.27% Mean (+4.55% at Day 7)** |
 
-*Operational reality & scientific transparency:* Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. **Disjoint Split Validation:** The $\alpha(\tau)$ schedule is fitted on a completely disjoint December calibration window (Days 0–6) and evaluated out-of-sample on the January held-out window (Days 14–20). This confirms that the +2.27% mean gain (+4.55% Day 7) is a genuine out-of-sample physical improvement.
+*Operational reality & scientific transparency:* Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. **Time-Ordered Split Validation:** The $\alpha(\tau)$ schedule is fitted on an early January calibration window (Jan 1–14, targets Jan 8–14) and evaluated on the held-out late January window (Jan 15–21). Across the test period, hybrid forecasting performance is comparable to persistence overall (+2.27% mean RMSE), with modest improvement emerging at longer lead times (days 5–7, reaching +4.55% at Day 7). Expanding the archive to multi-season records across freeze-up and winter maximum is planned to evaluate performance across seasonal transitions.
 
 ### 2. Multi-Berg, Multi-Window Iceberg Drift Validation (BYU/USNIC Satellite Passes)
-Evaluated across **10 icebergs** and **60 multi-day satellite observation windows** with per-berg estimated drift velocity executed via the real 2D hydrodynamic momentum drift engine with authentic observation-level dimensions and ICESat-2/CryoSat-2 altimetry-calibrated ice shelf thicknesses (180–350 m):
+Evaluated across **10 icebergs** and **60 multi-day satellite observation windows** with per-berg estimated drift velocity executed via the real 2D hydrodynamic momentum drift engine with authentic observation-level dimensions and assumed ice shelf thicknesses based on source shelf literature estimates (180–350 m):
 
 | Evaluation Metric | 2D Momentum Physics Model (Real Drift Engine) | Linear Dead-Reckoning Baseline |
 | :--- | :---: | :---: |
@@ -359,36 +359,38 @@ Evaluated across **10 icebergs** and **60 multi-day satellite observation window
 | **90th Percentile ($p_{90}$)** | **14.4 km** | 20.9 km |
 | **Ensemble Cone Calibration ($P_{10}$–$P_{90}$)** | **85.0% coverage** (51/60 inside cone) | N/A (Deterministic) |
 
-*Calibration note:* A nominal $P_{10}$–$P_{90}$ interval covers approximately 80% of observations. The calibrated growth-rate formula `max(1.2, (σ_lat · 111 + hour · 0.35) · 1.03)` achieves **85.0%** coverage, closely aligning with the theoretical 80% confidence interval.
+*Calibration note:* The uncertainty cone ($P_{10}$–$P_{90}$) is approximately calibrated to the nominal 80% coverage envelope. Tuned in-sample on the 60 observation windows with multiplier 1.03, observed coverage across BYU satellite fixes is **85.0%** (51/60 fixes), which is within sampling noise (±5%) of the theoretical 80% target for $n=60$.
 
 ### 3. Routing Pareto Frontiers (Cape Town $\rightarrow$ Bharati Station, PC5 Vessel)
-Evaluated under both standard baseline and late-season Marginal Ice Zone (MIZ) stress conditions:
+Evaluated under both standard baseline and late-season Marginal Ice Zone (MIZ) stress conditions across 60 dense corridor waypoints (~50 NM spacing):
 
 - **Standard Operational Baseline:**
-  - **Fastest Transit:** $3022.1\text{ NM}$, $8.43\text{ d}$, $224.3\text{ MT MGO}$, Min RIO $29$
-  - **Balanced Route:** $3092.1\text{ NM}$, $9.54\text{ d}$, $197.1\text{ MT MGO}$, Min RIO $30$
-  - **Eco-Fuel Route:** $3094.3\text{ NM}$, $12.28\text{ d}$, $144.9\text{ MT MGO}$, Min RIO $30$ ($-26.5\%$ fuel savings vs Balanced)
-  - **Maximum Safety:** $3219.9\text{ NM}$, $11.67\text{ d}$, $166.7\text{ MT MGO}$, Min RIO $30$
+  - **Fastest Transit:** $3020.9\text{ NM}$, $8.45\text{ d}$, $223.4\text{ MT MGO}$, Min RIO $29$
+  - **Balanced Route:** $3116.9\text{ NM}$, $9.69\text{ d}$, $197.3\text{ MT MGO}$, Min RIO $29$
+  - **Eco-Fuel Route:** $3110.1\text{ NM}$, $12.40\text{ d}$, $145.8\text{ MT MGO}$, Min RIO $29$ ($-26.1\%$ fuel savings vs Balanced)
+  - **Maximum Safety:** $3220.7\text{ NM}$, $11.71\text{ d}$, $166.7\text{ MT MGO}$, Min RIO $29$
 - **Late-Season MIZ Stress Test (Synthetic Scenario — Restricted Leg Fraction):**
-  > **Scenario Methodology & Objective Trade-offs:** The MIZ ice field is a synthetic latitude/longitude gradient formula applied for stress-testing. Because all four routes share the exact same destination at Bharati Station (69.4°S, 76.2°E), the minimum POLARIS RIO at the final waypoint is identically 12 across all modes. The routes are separated by their trajectory through the ice pack, quantified by the **Restricted Leg Fraction** (fraction of en-route waypoints with POLARIS RIO ≤ 20, representing speed-restricting heavy ice conditions):
+  > **Scenario Methodology & Objective Trade-offs:** The MIZ ice field is a synthetic latitude/longitude gradient formula applied for stress-testing. Because all four routes share the exact same destination at Bharati Station (69.4°S, 76.2°E), the minimum POLARIS RIO at the final waypoint is identically 12 across all modes. The routes are evaluated across 60 dense corridor waypoints (~50 NM spacing) and separated by their trajectory and speed profiles through the ice pack, quantified by the **Restricted Leg Fraction** (fraction of waypoints with POLARIS RIO ≤ 20, representing speed-restricting heavy ice conditions):
 
   | Route Corridor | Distance (NM) | Transit Duration (Days) | Fuel Burn (MT) | Restricted Leg Fraction (RIO ≤ 20) | Min RIO (Destination) |
   | :--- | :---: | :---: | :---: | :---: | :---: |
-  | **Fastest Transit** | 3050.7 NM | 9.26 d | 235.6 MT | **16.7%** | RIO 12 |
-  | **Balanced Route** | 3092.1 NM | 10.40 d | 208.0 MT | **12.5%** | RIO 12 |
-  | **Maximum Safety** | 3227.9 NM | 12.70 d | 180.5 MT | **12.5%** | RIO 12 |
-  | **Eco-Fuel Route** | 3093.2 NM | 13.43 d | 160.1 MT | **12.5%** | RIO 12 |
+  | **Fastest Transit** | 3047.9 NM | 9.19 d | 233.6 MT | **16.7%** | RIO 12 |
+  | **Balanced Route** | 3113.4 NM | 10.40 d | 206.7 MT | **15.0%** | RIO 12 |
+  | **Maximum Safety** | 3228.0 NM | 12.54 d | 178.4 MT | **13.3%** | RIO 12 |
+  | **Eco-Fuel Route** | 3115.4 NM | 13.33 d | 158.7 MT | **15.0%** | RIO 12 |
 
-  - **Physical Trade-off:** Fastest cuts directly through the MIZ ice field, incurring **16.7%** restricted legs to shave transit time to 9.26 days. Maximum Safety routes east in open water until longitude alignment before turning south, reducing restricted ice exposure to **12.5%** at the cost of 3.4 extra transit days. Eco-Fuel burns the least fuel (160.1 MT, $-32\%$ vs Fastest) by cruising at economical speeds in open water.
+  - **Physical Trade-off:** Fastest pushes higher speed through the ice pack, incurring **16.7%** restricted legs with the shortest transit time (9.19 d) and highest fuel burn (233.6 MT). Maximum Safety minimizes ice exposure, yielding **13.3%** restricted legs at the expense of an extended transit (12.54 d). Eco-Fuel achieves the lowest fuel consumption (158.7 MT, -32% vs Fastest) with **15.0%** restricted legs, while Balanced provides an intermediate compromise (10.40 d, 206.7 MT, **15.0%** restricted legs).
 
-### 4. Component Ablation Studies
-Evaluated on a standard polar tabular iceberg (2.5 km × 1.2 km × 180 m) under Southern Ocean forcing (15 m/s westerly gale + 0.35 m/s ACC current), measuring net 72-hour trajectory displacement deflection:
+### 4. Component Ablation Studies (Idealized Forcing Scenario)
+Evaluated on a standard polar tabular iceberg (2.5 km × 1.2 km × 180 m) under an idealized strong Southern Ocean forcing scenario (15 m/s westerly gale + 0.35 m/s ACC current), measuring net 72-hour trajectory displacement deflection:
 
 | Component / Forcing | Physical Mechanism | Impact on Dynamics (Trajectory Deflection) |
 | :--- | :--- | :---: |
 | **Atmospheric Wind Drag ($F_{air}$)** | Windage on subaerial iceberg sail (15 m/s westerly) | **36.6%** net trajectory displacement shift (33.4 km) |
 | **Ocean Currents ($F_{water}$)** | Hydrodynamic drag on submerged keel (0.35 m/s ACC) | **60.0%** net trajectory displacement shift (54.9 km) |
 | **Lindqvist Ice Resistance** | Crushing, bending, and submersion forces | **+125.0%** fuel burn in 75% pack ice over calm water |
+
+*Note on Idealized Forcing vs. Hindcast Windows:* This idealized forcing test confirms that the dynamic momentum coupling operates correctly under strong atmospheric and oceanic gradients. Under weak ambient currents or on multi-gigaton bergs (such as A-23a, ~1.1×10⁹ tons), scalar displacement shifts in short hindcast windows can be near zero because hydrodynamic water drag and immense tabular inertia dominate.
 
 ---
 

@@ -136,7 +136,7 @@ def evaluate_sea_ice_forecast() -> Dict[str, Any]:
             "avg_rmse_improvement_pct": avg_rmse_gain,
             "avg_iiee_reduction_pct": avg_iiee_gain,
             "model_architecture": "Hybrid Physics-Guided Forecaster: Spatiotemporal ConvLSTM Residuals + Kinematic Wind Advection + Thermodynamic Melt Trend (Empirical Horizon Blending Schedule alpha(tau))",
-            "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0462 vs Persistence 0.0353). The operational gain (+2.27% mean, +4.55% Day 7) is achieved by the physics-guided hybrid blending framework. The alpha schedule is calibrated on the disjoint December window (Days 0-6) and evaluated out-of-sample on January (Days 14-20)."
+            "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0462 vs Persistence 0.0353). The operational gain is comparable to persistence overall (+2.27% mean, modestly better at Days 5-7 reaching +4.55% at Day 7) and is achieved by the physics-guided hybrid blending framework. The alpha schedule is calibrated on an early January time-ordered split (Jan 1-14, targets Jan 8-14) and evaluated on held-out late January (Jan 15-21)."
         },
         "lead_time_metrics": horizon_results
     }
@@ -234,8 +234,8 @@ def evaluate_iceberg_drift() -> Dict[str, Any]:
                 obs_len = max(1.0, min(200.0, obs_len))
                 obs_wid = max(0.5, min(100.0, obs_wid))
 
-                # Authentic Antarctic ice shelf thickness mapping (ICESat-2 / CryoSat-2 altimetry baseline)
-                berg_thickness_map = {
+                # Assumed thickness by source shelf / tabular iceberg literature estimates (not direct altimetry observations in repo)
+                berg_assumed_thickness_map = {
                     "A-23a": 350.0,  # Filchner-Ronne Ice Shelf megaberg
                     "D-28": 210.0,   # Amery Ice Shelf tabular berg
                     "A-76a": 280.0,  # Ronne Ice Shelf
@@ -247,7 +247,7 @@ def evaluate_iceberg_drift() -> Dict[str, Any]:
                     "D-20a": 190.0,  # Amery Ice Shelf fragment
                     "B-22a": 270.0   # Thwaites / Amundsen Sea sector
                 }
-                obs_thick = berg_thickness_map.get(berg_id, 220.0)
+                obs_thick = berg_assumed_thickness_map.get(berg_id, 220.0)
 
                 berg_dict = {
                     "id": berg_id,
@@ -387,7 +387,7 @@ def evaluate_routing_corridors() -> Dict[str, Any]:
         },
         "late_season_miz_scenario": {
             "modes": miz_comparison,
-            "description": "Synthetic late-season MIZ scenario: SIC field is a synthetic latitude/longitude gradient formula applied for stress-testing. All routes share the same destination (69°S, 76°E) so Min RIO at Bharati Station is identically 12 across all modes. Restricted Leg Fraction (fraction of en-route waypoints with POLARIS RIO <= 20, the speed-restriction / heavy ice band) differentiates modes: aggressive routes (FASTEST) drive directly through heavier ice pack (16.7%), while SAFEST avoids heavy ice until the final approach (12.5%)."
+            "description": "Synthetic late-season MIZ scenario: SIC field is a synthetic latitude/longitude gradient formula applied for stress-testing. All routes share the same destination (69°S, 76°E) so Min RIO at Bharati Station is identically 12 across all modes. Restricted Leg Fraction (fraction of corridor waypoints with POLARIS RIO <= 20 across 60 dense waypoints) differentiates modes: aggressive routes (FASTEST) drive directly through heavier ice pack (16.7%), while SAFEST incurs the lowest restricted fraction (13.3%) and BALANCED / ECO-FUEL maintain 15.0%."
         }
     }
 
@@ -458,13 +458,15 @@ def run_ablation_studies() -> Dict[str, Any]:
     ice_resistance_surcharge_pct = round(((fuel_in_ice - fuel_open_water) / fuel_open_water) * 100.0, 1)
 
     ablation_results = {
+        "ablation_scenario": "Idealized Forcing Scenario (Synthetic 72-Hour Test)",
         "wind_drift_impact_pct": wind_impact_pct,
         "ocean_current_drift_impact_pct": curr_impact_pct,
         "lindqvist_fuel_ice_surcharge_pct": ice_resistance_surcharge_pct,
         "ablation_note": (
-            f"Measured on standard navigational tabular berg (2.5 km x 1.2 km x 180m) under Southern Ocean "
-            f"forcing ({STRONG_WIND_MS} m/s westerly wind + {ACC_CURRENT_MS} m/s ACC current). Values reflect net "
-            f"72h trajectory displacement deflection delta."
+            f"Idealized forcing test on standard navigational tabular berg (2.5 km x 1.2 km x 180m) under strong "
+            f"Southern Ocean forcing ({STRONG_WIND_MS} m/s westerly wind + {ACC_CURRENT_MS} m/s ACC current). Values reflect net "
+            f"72h trajectory displacement deflection delta. Confirms momentum coupling operates correctly under strong gradients; "
+            f"in weak-current observation windows on multi-gigaton bergs (e.g. A-23a), scalar displacement shifts can be near-zero due to immense inertia."
         ),
         "details": {
             "net_displacement_72h_km": round(disp_full_km, 1),
@@ -475,8 +477,8 @@ def run_ablation_studies() -> Dict[str, Any]:
         }
     }
 
-    print(f"  -> Wind Forcing Contribution (15 m/s westerly): {wind_impact_pct}% trajectory deflection ({wind_disp_delta_km:.1f} km)")
-    print(f"  -> Current Forcing Contribution (0.35 m/s ACC): {curr_impact_pct}% trajectory deflection ({curr_disp_delta_km:.1f} km)")
+    print(f"  -> [Idealized Forcing] Wind Contribution (15 m/s): {wind_impact_pct}% trajectory deflection ({wind_disp_delta_km:.1f} km)")
+    print(f"  -> [Idealized Forcing] Current Contribution (0.35 m/s): {curr_impact_pct}% trajectory deflection ({curr_disp_delta_km:.1f} km)")
     return ablation_results
 
 
@@ -514,13 +516,14 @@ Evaluated against the standard Persistence Baseline and Climatology across 1-to-
 - **Average Integrated Ice Edge Error (IIEE) Reduction:** **{sea_ice_res['summary']['avg_iiee_reduction_pct']:+.2f}%**
 - **Lead Day 7 RMSE Gain:** **+4.55%** over persistence ({sea_ice_res['lead_time_metrics'][-1]['convlstm_rmse']} vs {sea_ice_res['lead_time_metrics'][-1]['persistence_rmse']})
 - **Model Mechanics & Operational Reality:** Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\\alpha(\\tau) = \\min(0.35, 0.018 \\cdot (\\tau - 1)^{{1.5}})$.
-- **Disjoint Split Validation:** The horizon schedule $\\alpha(\\tau)$ is fitted on a completely disjoint December calibration window (Days 0–6) and evaluated out-of-sample on the January held-out window (Days 14–20). This confirms that the +2.27% mean gain (+4.55% Day 7) is a genuine out-of-sample physical improvement.
+- **Time-Ordered Split within January:** The horizon schedule $\\alpha(\\tau)$ is fitted on an early January calibration window (Jan 1–14, targets Jan 8–14) and evaluated on the held-out late January window (Jan 15–21). Across the test period, hybrid forecasting performance is comparable to persistence overall (+2.27% mean RMSE), with modest improvement emerging at longer lead times (days 5–7, reaching +4.55% at Day 7).
+- **Multi-Season Roadmap:** The current dataset comprises 21 daily observations from January 2026 (austral summer). Expanding the archive to include multi-season records across autumn freeze-up (March–May) and winter maximum extent (August–October) is planned to evaluate model generalizability across contrasting thermodynamic regimes.
 
 ---
 
 ## 2. Multi-Berg, Multi-Window Iceberg Drift Validation
 
-Evaluated across **{drift_res['icebergs_evaluated_count']} icebergs** and **{drift_res['total_windows_evaluated']} multi-day windows** from the BYU/USNIC satellite database using per-berg estimated drift velocity directly executed via the real 2D hydrodynamic momentum drift engine with authentic observation-level dimensions and ICESat-2/CryoSat-2 altimetry-calibrated ice shelf thicknesses (180–350 m):
+Evaluated across **{drift_res['icebergs_evaluated_count']} icebergs** and **{drift_res['total_windows_evaluated']} multi-day windows** from the BYU/USNIC satellite database using per-berg estimated drift velocity directly executed via the real 2D hydrodynamic momentum drift engine with authentic observation-level dimensions and assumed ice shelf thicknesses based on source shelf literature estimates (180–350 m):
 
 ### Error Distributions & Envelope Calibration:
 | Metric | 2D Momentum Physics Model (Real Drift Engine) (km) | Linear Dead-Reckoning (km) |
@@ -532,7 +535,7 @@ Evaluated across **{drift_res['icebergs_evaluated_count']} icebergs** and **{dri
 | **90th Percentile ($p_{{90}}$)** | **{drift_res['physics_error_distribution']['p90_km']} km** | {drift_res['dead_reckoning_error_distribution']['p90_km']} km |
 
 - **Uncertainty Cone Calibration ($P_{{10}}$–$P_{{90}}$ coverage):** **{drift_res['cone_calibration_pct']}%** of ground-truth satellite fixes fall inside the projected ensemble envelope.
-- **Envelope Calibration:** A nominal $P_{{10}}$–$P_{{90}}$ interval covers ~80% of observations. The calibrated growth-rate formula `max(1.2, (σ_lat · 111 + hour · 0.35) · 1.03)` achieves **{drift_res['cone_calibration_pct']}%** coverage, closely aligning with the theoretical 80% confidence interval.
+- **Envelope Calibration:** A nominal $P_{{10}}$–$P_{{90}}$ interval covers ~80% of observations. The calibrated growth-rate formula `max(1.2, (σ_lat · 111 + hour · 0.35) · 1.03)` was tuned in-sample on the 60 observation windows to achieve **{drift_res['cone_calibration_pct']}%** coverage, which is approximately calibrated and within sampling noise (±5%) of the theoretical 80% target for $n=60$.
 
 ### Sample Track Windows:
 | Iceberg ID | Window (h) | Initial Speed | Physics Error (km) | Dead-Reckoning Error (km) | In Cone ($P_{{10}}$-$P_{{90}}$) |
@@ -561,10 +564,11 @@ Evaluation of vessel routing trade-offs for a Polar Class 5 vessel (*MV Vasiliy 
     md += f"""
 ### Scenario B: Late-Season Marginal Ice Zone (MIZ) Stress Test — Synthetic Scenario
 **Scenario Methodology & Objective Trade-offs:**
-The MIZ ice field is a synthetic latitude/longitude gradient formula applied for stress-testing. Because all four routes share the exact same destination at Bharati Station (69.4°S, 76.2°E), the minimum POLARIS RIO at the final waypoint is identically 12 across all modes. The routes are separated by their trajectory through the ice pack, quantified by the **Restricted Leg Fraction** (fraction of en-route waypoints with POLARIS RIO ≤ 20, representing speed-restricting heavy ice conditions):
-- **Fastest Transit** (3050.7 NM, 9.26 d, 235.6 MT) cuts directly through the MIZ ice field, incurring **16.7%** restricted legs.
-- **Maximum Safety** (3227.9 NM, 12.70 d, 180.5 MT) routes east in open water until longitude alignment before turning south, reducing restricted legs to **12.5%** while increasing transit time by 3.4 days.
-- **Eco-Fuel** (3093.2 NM, 13.43 d, 160.1 MT) achieves the lowest fuel consumption (160.1 MT, -32% vs Fastest) by maintaining economical engine load in open water.
+The MIZ ice field is a synthetic latitude/longitude gradient formula applied for stress-testing. Because all four routes share the exact same destination at Bharati Station (69.4°S, 76.2°E), the minimum POLARIS RIO at the final waypoint is identically 12 across all modes. The routes are evaluated across 60 dense corridor waypoints (~50 NM spacing) and separated by their trajectory and speed profiles through the ice pack, quantified by the **Restricted Leg Fraction** (fraction of waypoints with POLARIS RIO ≤ 20, representing speed-restricting heavy ice conditions):
+- **Fastest Transit** ({miz_modes['fastest']['distance_nm']} NM, {miz_modes['fastest']['transit_days']} d, {miz_modes['fastest']['fuel_mt']} MT) pushes higher speed through ice, incurring **{miz_modes['fastest'].get('high_risk_leg_fraction', 0.0):.1%}** restricted legs with the shortest transit time.
+- **Maximum Safety** ({miz_modes['safest']['distance_nm']} NM, {miz_modes['safest']['transit_days']} d, {miz_modes['safest']['fuel_mt']} MT) minimizes ice exposure, yielding **{miz_modes['safest'].get('high_risk_leg_fraction', 0.0):.1%}** restricted legs.
+- **Eco-Fuel** ({miz_modes['eco_fuel']['distance_nm']} NM, {miz_modes['eco_fuel']['transit_days']} d, {miz_modes['eco_fuel']['fuel_mt']} MT) achieves the lowest fuel consumption ({miz_modes['eco_fuel']['fuel_mt']} MT) with **{miz_modes['eco_fuel'].get('high_risk_leg_fraction', 0.0):.1%}** restricted legs.
+- **Balanced Route** ({miz_modes['balanced']['distance_nm']} NM, {miz_modes['balanced']['transit_days']} d, {miz_modes['balanced']['fuel_mt']} MT) provides an intermediate operational trade-off (**{miz_modes['balanced'].get('high_risk_leg_fraction', 0.0):.1%}** restricted legs).
 
 | Route Corridor | Distance (NM) | Transit Duration (Days) | Fuel Burn (MT) | Restricted Leg Fraction (RIO ≤ 20) | Min RIO (Destination) |
 |:---:|:---:|:---:|:---:|:---:|:---:|
@@ -583,9 +587,9 @@ The MIZ ice field is a synthetic latitude/longitude gradient formula applied for
     md += f"""
 ---
 
-## 4. Component Ablation Studies
+## 4. Component Ablation Studies (Idealized Forcing Scenario)
 
-**Ablation Methodology:** Evaluated on a standard polar tabular iceberg (2.5 km × 1.2 km × 180 m) under Southern Ocean forcing (15 m/s westerly gale + 0.35 m/s ACC current). Metrics measure net 72-hour trajectory displacement deflection delta (haversine position shift caused by removing each forcing component):
+**Ablation Methodology (Idealized Forcing):** Evaluated on a standard polar tabular iceberg (2.5 km × 1.2 km × 180 m) under an idealized strong forcing scenario (15 m/s westerly gale + 0.35 m/s ACC current). Metrics measure net 72-hour trajectory displacement deflection delta (haversine position shift caused by removing each forcing component):
 
 | Component / Forcing | Physical Mechanism | Impact on Dynamics (Trajectory Deflection) |
 |---|---|---|
@@ -593,6 +597,7 @@ The MIZ ice field is a synthetic latitude/longitude gradient formula applied for
 | **Ocean Currents ($F_{{water}}$)** | Hydrodynamic drag on submerged keel (0.35 m/s ACC) | **{ablation_res['ocean_current_drift_impact_pct']}%** net trajectory displacement shift ({ablation_res['details']['current_deflection_delta_km']} km) |
 | **Lindqvist Ice Resistance** | Crushing, bending, and submersion forces | **+{ablation_res['lindqvist_fuel_ice_surcharge_pct']}%** fuel burn in 75% pack ice over calm water |
 
+*Note on Idealized Forcing vs. Hindcast Windows:* This idealized forcing test confirms that the dynamic momentum coupling operates correctly under strong atmospheric and oceanic gradients. Under weak ambient currents or on multi-gigaton bergs (such as A-23a, ~1.1×10⁹ tons), scalar displacement shifts in short hindcast windows can be near zero because hydrodynamic water drag and immense tabular inertia dominate.
 """
     return md
 

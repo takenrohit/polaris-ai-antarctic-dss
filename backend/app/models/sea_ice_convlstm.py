@@ -201,11 +201,11 @@ class SeaIcePredictor:
             lat_grid, lon_grid, num_days=21
         )
 
-        # ---- December calibration window: days 0-6 ----
-        # Used to fit alpha(tau) parameters on a period DISJOINT from the January test window.
-        # This ensures the reported January gains are genuine out-of-sample predictions.
-        cal_day0 = raw_sequence[6, 0]                 # Day 6 = "December day 0"
-        cal_truth = raw_sequence[7:14, 0]             # Days 7-13 = "December" 1-7 day targets
+        # ---- Early January calibration window: days 0-13 (Jan 1-14) ----
+        # Time-ordered split within January: fits alpha(tau) parameters on early January targets
+        # (Jan 8-14) before evaluating on the held-out late January test window (Jan 15-21).
+        cal_day0 = raw_sequence[6, 0]                 # Day 6 = Jan 7 baseline
+        cal_truth = raw_sequence[7:14, 0]             # Days 7-13 = Jan 8-14 targets
         cal_train_sic = raw_sequence[0:7, 0]
         cal_u10 = raw_sequence[6, 2]
         cal_v10 = raw_sequence[6, 3]
@@ -216,7 +216,7 @@ class SeaIcePredictor:
         d_lon_grid = (lon_grid[-1] - lon_grid[0]) / max(1, len(lon_grid) - 1)
         yy, xx = np.mgrid[0:H, 0:W]
 
-        # Grid search over alpha(tau) = min(cap, base * (tau-1)^exp) on December calibration window
+        # Grid search over alpha(tau) = min(cap, base * (tau-1)^exp) on early January calibration window
         best_cal_rmse = float("inf")
         best_alpha_params = (0.35, 0.018, 1.5)   # fallback to previous values
         for cap in [0.20, 0.25, 0.30, 0.35, 0.40]:
@@ -265,9 +265,9 @@ class SeaIcePredictor:
         dlat_dt = (0.012 * v10 * 86.4) / 111.0
         dlon_dt = (0.012 * u10 * 86.4) / (111.0 * np.cos(np.radians(lat_grid))[:, None] + 1e-6)
 
-        # Construct blended residual forecast grids using December-calibrated alpha schedule
+        # Construct blended residual forecast grids using early January-calibrated alpha schedule
         # alpha(tau) = min(fitted_cap, fitted_base * (tau-1)^fitted_exp)
-        # Calibrated on December window (days 0-6), applied to January (days 14-20).
+        # Calibrated on early January window (days 0-13), applied to late January (days 14-20).
         # The 0.02 nn_residual weight is kept fixed (it has minimal impact given nn contribution ~2%).
         blended_preds = []
         for t in range(days_ahead):
@@ -278,7 +278,7 @@ class SeaIcePredictor:
             advected = map_coordinates(day0_sic, coords, order=1, mode='nearest')
             thermo_corrected = np.clip(advected + mean_melt_per_day * tau * 0.7, 0.0, 1.0)
 
-            # Alpha schedule fitted on December calibration window (disjoint from January test)
+            # Alpha schedule fitted on early January calibration split
             alpha = min(fitted_cap, fitted_base * max(0.0, (tau - 1) ** fitted_exp))
             nn_residual = nn_deltas[t] if t < len(nn_deltas) else 0.0
             pred_t = np.clip((1.0 - alpha) * day0_sic + alpha * thermo_corrected + 0.02 * nn_residual, 0.0, 1.0)
@@ -362,8 +362,8 @@ class SeaIcePredictor:
                 "avg_iiee_reduction_pct": avg_iiee_red,
                 "evaluation_split": "Held-Out Verification Split (Days 15-21, January 2026)",
                 "model_class": "Hybrid Physics-Guided Forecaster: Spatiotemporal ConvLSTM Residuals + Kinematic Wind Advection + Thermodynamic Melt Trend (Empirical Horizon Blending Schedule alpha(tau))",
-                "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0462 vs Persistence 0.0353). The operational gain (+2.27% mean, +4.55% at Day 7) is achieved by the physics-guided hybrid blending framework. The alpha schedule is calibrated on the disjoint December window (Days 0-6) and evaluated out-of-sample on January (Days 14-20).",
-                "verdict": "Hybrid forecaster matches persistence at Day 1 and outperforms persistence at Days 5-7 (+4.55% RMSE gain at Day 7) on held-out NSIDC/ERA5 observations."
+                "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0462 vs Persistence 0.0353). The operational gain is comparable to persistence overall (+2.27% mean, modestly better at Days 5-7 reaching +4.55% at Day 7) and is achieved by the physics-guided hybrid blending framework. The alpha schedule is calibrated on an early January time-ordered split (Days 0-13, Jan 1-14) and evaluated on held-out late January (Days 14-20, Jan 15-21).",
+                "verdict": "Hybrid forecaster is comparable to persistence, modestly better at days 5-7 (+4.55% RMSE gain at Day 7) on held-out NSIDC/ERA5 observations."
             }
         }
 

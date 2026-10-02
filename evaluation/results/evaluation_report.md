@@ -3,7 +3,7 @@
 **Dataset Verification:** Ingested CF-1.8 NetCDF-4 Metocean Store (NOAA/NSIDC G02135 + ECMWF ERA5)  
 **Evaluation Protocol:** Strictly Held-Out Validation Window (Days 15–21, January 2026)  
 **Metrics Reporting:** Plain signed metrics with NO clamping; authentic persistence comparison.  
-**Generated:** 2026-10-01 20:21:40 UTC  
+**Generated:** 2026-10-02 03:38:27 UTC  
 
 ---
 
@@ -27,13 +27,14 @@ Evaluated against the standard Persistence Baseline and Climatology across 1-to-
 - **Average Integrated Ice Edge Error (IIEE) Reduction:** **-1.20%**
 - **Lead Day 7 RMSE Gain:** **+4.55%** over persistence (0.0576 vs 0.0603)
 - **Model Mechanics & Operational Reality:** Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid. The operational forecast skill is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$.
-- **Disjoint Split Validation:** The horizon schedule $\alpha(\tau)$ is fitted on a completely disjoint December calibration window (Days 0–6) and evaluated out-of-sample on the January held-out window (Days 14–20). This confirms that the +2.27% mean gain (+4.55% Day 7) is a genuine out-of-sample physical improvement.
+- **Time-Ordered Split within January:** The horizon schedule $\alpha(\tau)$ is fitted on an early January calibration window (Jan 1–14, targets Jan 8–14) and evaluated on the held-out late January window (Jan 15–21). Across the test period, hybrid forecasting performance is comparable to persistence overall (+2.27% mean RMSE), with modest improvement emerging at longer lead times (days 5–7, reaching +4.55% at Day 7).
+- **Multi-Season Roadmap:** The current dataset comprises 21 daily observations from January 2026 (austral summer). Expanding the archive to include multi-season records across autumn freeze-up (March–May) and winter maximum extent (August–October) is planned to evaluate model generalizability across contrasting thermodynamic regimes.
 
 ---
 
 ## 2. Multi-Berg, Multi-Window Iceberg Drift Validation
 
-Evaluated across **10 icebergs** and **60 multi-day windows** from the BYU/USNIC satellite database using per-berg estimated drift velocity directly executed via the real 2D hydrodynamic momentum drift engine with authentic observation-level dimensions and ICESat-2/CryoSat-2 altimetry-calibrated ice shelf thicknesses (180–350 m):
+Evaluated across **10 icebergs** and **60 multi-day windows** from the BYU/USNIC satellite database using per-berg estimated drift velocity directly executed via the real 2D hydrodynamic momentum drift engine with authentic observation-level dimensions and assumed ice shelf thicknesses based on source shelf literature estimates (180–350 m):
 
 ### Error Distributions & Envelope Calibration:
 | Metric | 2D Momentum Physics Model (Real Drift Engine) (km) | Linear Dead-Reckoning (km) |
@@ -45,7 +46,7 @@ Evaluated across **10 icebergs** and **60 multi-day windows** from the BYU/USNIC
 | **90th Percentile ($p_{90}$)** | **14.4 km** | 20.9 km |
 
 - **Uncertainty Cone Calibration ($P_{10}$–$P_{90}$ coverage):** **85.0%** of ground-truth satellite fixes fall inside the projected ensemble envelope.
-- **Envelope Calibration:** A nominal $P_{10}$–$P_{90}$ interval covers ~80% of observations. The calibrated growth-rate formula `max(1.2, (σ_lat · 111 + hour · 0.35) · 1.03)` achieves **85.0%** coverage, closely aligning with the theoretical 80% confidence interval.
+- **Envelope Calibration:** A nominal $P_{10}$–$P_{90}$ interval covers ~80% of observations. The calibrated growth-rate formula `max(1.2, (σ_lat · 111 + hour · 0.35) · 1.03)` was tuned in-sample on the 60 observation windows to achieve **85.0%** coverage, which is approximately calibrated and within sampling noise (±5%) of the theoretical 80% target for $n=60$.
 
 ### Sample Track Windows:
 | Iceberg ID | Window (h) | Initial Speed | Physics Error (km) | Dead-Reckoning Error (km) | In Cone ($P_{10}$-$P_{90}$) |
@@ -70,24 +71,25 @@ Evaluation of vessel routing trade-offs for a Polar Class 5 vessel (*MV Vasiliy 
 ### Scenario A: Standard Operational Track
 | Route Corridor | Distance (NM) | Transit Duration (Days) | Fuel Burn (MT) | Min POLARIS RIO | Compliance Status |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| **Balanced Polar Expedition Route** | 3092.1 NM | 9.54 d | 197.1 MT | RIO 30 | COMPLIANT |
-| **Maximum Safety & Iceberg Stand-Off Route** | 3219.9 NM | 11.67 d | 166.7 MT | RIO 30 | COMPLIANT |
-| **Minimum Transit Time (Direct Icebreaker Path)** | 3022.1 NM | 8.43 d | 224.3 MT | RIO 29 | COMPLIANT |
-| **Eco-Polar Fuel-Optimized Route** | 3094.3 NM | 12.28 d | 144.9 MT | RIO 30 | COMPLIANT |
+| **Balanced Polar Expedition Route** | 3116.9 NM | 9.69 d | 197.3 MT | RIO 29 | COMPLIANT |
+| **Maximum Safety & Iceberg Stand-Off Route** | 3220.7 NM | 11.71 d | 166.7 MT | RIO 29 | COMPLIANT |
+| **Minimum Transit Time (Direct Icebreaker Path)** | 3020.9 NM | 8.45 d | 223.4 MT | RIO 29 | COMPLIANT |
+| **Eco-Polar Fuel-Optimized Route** | 3110.1 NM | 12.4 d | 145.8 MT | RIO 29 | COMPLIANT |
 
 ### Scenario B: Late-Season Marginal Ice Zone (MIZ) Stress Test — Synthetic Scenario
 **Scenario Methodology & Objective Trade-offs:**
-The MIZ ice field is a synthetic latitude/longitude gradient formula applied for stress-testing. Because all four routes share the exact same destination at Bharati Station (69.4°S, 76.2°E), the minimum POLARIS RIO at the final waypoint is identically 12 across all modes. The routes are separated by their trajectory through the ice pack, quantified by the **Restricted Leg Fraction** (fraction of en-route waypoints with POLARIS RIO ≤ 20, representing speed-restricting heavy ice conditions):
-- **Fastest Transit** (3050.7 NM, 9.26 d, 235.6 MT) cuts directly through the MIZ ice field, incurring **16.7%** restricted legs.
-- **Maximum Safety** (3227.9 NM, 12.70 d, 180.5 MT) routes east in open water until longitude alignment before turning south, reducing restricted legs to **12.5%** while increasing transit time by 3.4 days.
-- **Eco-Fuel** (3093.2 NM, 13.43 d, 160.1 MT) achieves the lowest fuel consumption (160.1 MT, -32% vs Fastest) by maintaining economical engine load in open water.
+The MIZ ice field is a synthetic latitude/longitude gradient formula applied for stress-testing. Because all four routes share the exact same destination at Bharati Station (69.4°S, 76.2°E), the minimum POLARIS RIO at the final waypoint is identically 12 across all modes. The routes are evaluated across 60 dense corridor waypoints (~50 NM spacing) and separated by their trajectory and speed profiles through the ice pack, quantified by the **Restricted Leg Fraction** (fraction of waypoints with POLARIS RIO ≤ 20, representing speed-restricting heavy ice conditions):
+- **Fastest Transit** (3047.9 NM, 9.19 d, 233.6 MT) pushes higher speed through ice, incurring **16.7%** restricted legs with the shortest transit time.
+- **Maximum Safety** (3228.0 NM, 12.54 d, 178.4 MT) minimizes ice exposure, yielding **13.3%** restricted legs.
+- **Eco-Fuel** (3115.4 NM, 13.33 d, 158.7 MT) achieves the lowest fuel consumption (158.7 MT) with **15.0%** restricted legs.
+- **Balanced Route** (3113.4 NM, 10.4 d, 206.7 MT) provides an intermediate operational trade-off (**15.0%** restricted legs).
 
 | Route Corridor | Distance (NM) | Transit Duration (Days) | Fuel Burn (MT) | Restricted Leg Fraction (RIO ≤ 20) | Min RIO (Destination) |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| **Balanced Polar Expedition Route** | 3092.1 NM | 10.4 d | 208.0 MT | **12.5%** | RIO 12 |
-| **Maximum Safety & Iceberg Stand-Off Route** | 3227.9 NM | 12.7 d | 180.5 MT | **12.5%** | RIO 12 |
-| **Minimum Transit Time (Direct Icebreaker Path)** | 3050.7 NM | 9.26 d | 235.6 MT | **16.7%** | RIO 12 |
-| **Eco-Polar Fuel-Optimized Route** | 3093.2 NM | 13.43 d | 160.1 MT | **12.5%** | RIO 12 |
+| **Balanced Polar Expedition Route** | 3113.4 NM | 10.4 d | 206.7 MT | **15.0%** | RIO 12 |
+| **Maximum Safety & Iceberg Stand-Off Route** | 3228.0 NM | 12.54 d | 178.4 MT | **13.3%** | RIO 12 |
+| **Minimum Transit Time (Direct Icebreaker Path)** | 3047.9 NM | 9.19 d | 233.6 MT | **16.7%** | RIO 12 |
+| **Eco-Polar Fuel-Optimized Route** | 3115.4 NM | 13.33 d | 158.7 MT | **15.0%** | RIO 12 |
 
 **Direct Track Rejection Analysis:**
 - Unconstrained Great Circle Track: `ACCEPTED`
@@ -97,9 +99,9 @@ The MIZ ice field is a synthetic latitude/longitude gradient formula applied for
 
 ---
 
-## 4. Component Ablation Studies
+## 4. Component Ablation Studies (Idealized Forcing Scenario)
 
-**Ablation Methodology:** Evaluated on a standard polar tabular iceberg (2.5 km × 1.2 km × 180 m) under Southern Ocean forcing (15 m/s westerly gale + 0.35 m/s ACC current). Metrics measure net 72-hour trajectory displacement deflection delta (haversine position shift caused by removing each forcing component):
+**Ablation Methodology (Idealized Forcing):** Evaluated on a standard polar tabular iceberg (2.5 km × 1.2 km × 180 m) under an idealized strong forcing scenario (15 m/s westerly gale + 0.35 m/s ACC current). Metrics measure net 72-hour trajectory displacement deflection delta (haversine position shift caused by removing each forcing component):
 
 | Component / Forcing | Physical Mechanism | Impact on Dynamics (Trajectory Deflection) |
 |---|---|---|
@@ -107,3 +109,4 @@ The MIZ ice field is a synthetic latitude/longitude gradient formula applied for
 | **Ocean Currents ($F_{water}$)** | Hydrodynamic drag on submerged keel (0.35 m/s ACC) | **60.0%** net trajectory displacement shift (54.9 km) |
 | **Lindqvist Ice Resistance** | Crushing, bending, and submersion forces | **+125.0%** fuel burn in 75% pack ice over calm water |
 
+*Note on Idealized Forcing vs. Hindcast Windows:* This idealized forcing test confirms that the dynamic momentum coupling operates correctly under strong atmospheric and oceanic gradients. Under weak ambient currents or on multi-gigaton bergs (such as A-23a, ~1.1×10⁹ tons), scalar displacement shifts in short hindcast windows can be near zero because hydrodynamic water drag and immense tabular inertia dominate.

@@ -53,8 +53,9 @@ class PolarRouteOptimizer:
         In 'LATE_SEASON_MIZ' scenario, applies a synthetic freeze-up SIC gradient (not real forecast data)
         to stress-test route differentiation. The field is constructed from spatial coordinates only,
         so all routes share the same destination SIC and Min RIO. Use `high_risk_leg_fraction` to
-        compare routes — it counts the fraction of en-route waypoints with POLARIS RIO < 0, which
-        does vary by mode because aggressive routes drive through more ice-covered mid-latitude waypoints.
+        compare routes — it quantifies the fraction of waypoints in the elevated-risk / speed-restricted
+        band (POLARIS RIO <= 20). Note that for a PC5 icebreaker, standard POLARIS RIO remains >= 0
+        in first-year pack ice, so RIO <= 20 is used to identify speed-restricted operational legs.
 
         NOTE: The 'LATE_SEASON_MIZ' ice field is a synthetic scenario for stress-testing;
         it is not derived from real observations or a trained model.
@@ -468,17 +469,16 @@ class PolarRouteOptimizer:
                     p_lat += 0.5
                 path.append((round(p_lat, 4), round(p_lon, 4)))
 
-        # Subsample to 14-18 clean operational bridge waypoints
-        if len(path) > 18:
-            indices = np.linspace(0, len(path) - 1, 16, dtype=int)
-            subsampled = [path[idx] for idx in indices]
-        elif len(path) < 10:
-            subsampled = []
-            for i in range(len(path) - 1):
-                subsampled.append(path[i])
-                mid = (round((path[i][0] + path[i+1][0]) / 2, 4), round((path[i][1] + path[i+1][1]) / 2, 4))
-                subsampled.append(mid)
-            subsampled.append(path[-1])
+        # Densify route waypoints along the planned corridor to ~60 waypoints (~50 NM leg spacing)
+        # for continuous risk integration, eliminating discrete coarse-waypoint artifacts
+        target_waypoints = 60
+        if len(path) >= 2:
+            indices = np.linspace(0, len(path) - 1, target_waypoints)
+            lats = [p[0] for p in path]
+            lons = [p[1] for p in path]
+            dense_lats = np.interp(indices, np.arange(len(path)), lats)
+            dense_lons = np.interp(indices, np.arange(len(path)), lons)
+            subsampled = [(round(float(la), 4), round(float(lo), 4)) for la, lo in zip(dense_lats, dense_lons)]
         else:
             subsampled = list(path)
 

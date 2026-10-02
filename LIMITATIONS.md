@@ -50,13 +50,16 @@
 ### 1. Pure ConvLSTM Spatial Diffusion
 - Standalone recursive ConvLSTM rollouts over multi-day horizons exhibit numerical diffusion and spatial smoothing, leading the standalone network to underperform persistence on this polar grid (7-day mean RMSE: 0.0462 vs 0.0353).
 
-### 2. Empirical Horizon Blending Schedule ($\alpha(\tau)$) — Disjoint Split Calibration
+### 2. Empirical Horizon Blending Schedule ($\alpha(\tau)$) — Time-Ordered Split within January
 - Operational forecasting gains (+2.27% mean, +4.55% at Day 7) are achieved through a physics-guided hybrid combining kinematic wind advection, thermodynamic melt trends, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$.
-- The blending parameters are fitted on a disjoint December calibration window (Days 0–6) and evaluated out-of-sample on the strictly held-out January window (Days 14–20). While this confirms that the gain survives to disjoint periods, long-term multi-season validation across winter freeze-up regimes remains an open research priority.
+- The blending parameters are fitted on an early January calibration split (Jan 1–14, targets Jan 8–14) and evaluated on the held-out late January window (Jan 15–21). Across this summer verification window, hybrid performance is comparable to persistence overall (+2.27% mean RMSE), with modest improvement at days 5–7 (+4.55% at Day 7). Expanding the dataset to multi-season records across winter freeze-up and peak sea-ice coverage remains a core research roadmap priority.
 
-### 3. Iceberg Ensemble Cone Calibration
-- The ensemble uncertainty cone ($P_{10}$–$P_{90}$) is calibrated to target nominal 80% coverage. With the updated growth formula `max(1.2, (σ_lat · 111 + hour · 0.35) · 1.03)`, observed coverage on BYU satellite fixes is **85.0%** (51/60 windows), successfully tightening over-wide envelopes while ensuring safe navigational standoff.
+### 3. Iceberg Ensemble Cone Calibration (In-Sample Tuning)
+- The ensemble uncertainty cone ($P_{10}$–$P_{90}$) is approximately calibrated to target nominal 80% coverage. With the updated growth formula `max(1.2, (σ_lat · 111 + hour · 0.35) · 1.03)` tuned in-sample on the 60 observation windows, observed coverage on BYU satellite fixes is **85.0%** (51/60 windows), which is within expected sampling noise (±5%) of the theoretical 80% confidence interval for $n=60$.
 
-### 4. MIZ Stress Test Uses a Synthetic Scenario
+### 4. Iceberg Keel and Thickness Assumptions
+- Tabular iceberg draft and thickness are not directly observed by satellite altimetry in this repository. Thicknesses are assumed from source shelf literature estimates (e.g. 350 m for Filchner-Ronne megaberg A-23a, 210 m for Amery Ice Shelf D-28, default 220 m). While lengths and widths are extracted per-pass from BYU/USNIC satellite observations, integrating direct ICESat-2 photon-counting altimetry passes is an active development objective.
+
+### 5. MIZ Stress Test Uses a Synthetic Scenario
 - The Late-Season Marginal Ice Zone (MIZ) stress test applies a synthetic latitude/longitude gradient SIC formula — not real forecast data or trained model output. This is designed to stress-test routing differentiation, not to represent an observed real-world ice field.
-- Because all four routes share the same fixed destination at Bharati Station (69.4°S, 76.2°E), the minimum POLARIS RIO at the final waypoint is identically 12 across all modes. The **Restricted Leg Fraction** (fraction of en-route waypoints with POLARIS RIO ≤ 20, representing speed-restricting heavy ice conditions) separates the modes: **16.7%** for Fastest Transit vs **12.5%** for Maximum Safety, Balanced, and Eco-Fuel.
+- Because all four routes share the same fixed destination at Bharati Station (69.4°S, 76.2°E), the minimum POLARIS RIO at the final waypoint is identically 12 across all modes. The **Restricted Leg Fraction** (fraction of waypoints with POLARIS RIO ≤ 20, representing speed-restricting heavy ice conditions evaluated across 60 dense corridor waypoints) separates the modes: **16.7%** for Fastest Transit vs **15.0%** for Balanced and Eco-Fuel, and **13.3%** for Maximum Safety.
