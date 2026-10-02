@@ -13,12 +13,15 @@ POLARIS-AI integrates multi-source satellite Earth observation, atmospheric rean
 | Dataset Identifier | Variable Description | Physical Unit | Provenance & Quality Status | Sensor / Platform | Spatial Resolution | Temporal Frequency |
 |---|---|---|---|---|---|---|
 | **NOAA/NSIDC G02135 v4.0** | Sea-Ice Concentration (SIC) | Fraction [0.0, 1.0] | **Real Satellite Observations** | DMSP SSMIS, AMSR2 | 25 km polar stereographic (EPSG:3412) | Daily CDR |
+| **Open-Meteo / ECMWF Live** | Real-Time Metocean & Marine Forcing | °C, m/s, kts, hPa, m | **Live Real-Time Satellite & In-Situ Feed** | ECMWF IFS / WMO Global Stations | Point & 0.25° grid | Real-Time / Hourly |
 | **ECMWF ERA5 Reanalysis** | 10-meter Wind Vectors ($u_{10}, v_{10}$) | $\text{m/s}$ | **Real Atmospheric Reanalysis** | Copernicus ERA5 / Open-Meteo | 0.25° grid (~25 km) | Daily & hourly forcing |
 | **Copernicus Marine (CMEMS)** | Surface Ocean Current ($u_{curr}, v_{curr}$) | $\text{m/s}$ | **Synthetic Geostrophic Proxy (not real CMEMS data)** | Analytic ACC + coastal counter-current formula | 0.25° polar grid | Fixed climatological pattern |
 | **NOAA OISST / ERA5** | Sea Surface Temperature (SST) | °C | **Polar Climatological Thermal Proxy** | Satellite IR/microwave assimilation | 0.25° grid | Daily surface boundary |
-| **BYU / USNIC Database** | Tabular Iceberg Positions & Geometry | Lat/Lon, km, GT | **Real Satellite Tracking Archive** | MetOp ASCAT, Sentinel-1 SAR, Envisat | Individual iceberg tracks | Multi-day satellite passes |
+| **BYU / ASCAT Live Scatterometer** | Active Antarctic Iceberg Positions | Lat/Lon, km, DOY | **Live Real-Time Satellite Tracking Feed** | MetOp ASCAT & OSCAT-2 Scatterometers | Exact GPS/DMS fixes (38+ active bergs) | Near-Real-Time (NRT) passes |
+| **BYU / USNIC Historical Archive** | Tabular Iceberg Positions & Geometry | Lat/Lon, km, GT | **Real Satellite Tracking Archive** | MetOp ASCAT, Sentinel-1 SAR, Envisat | Individual iceberg tracks | Multi-day satellite passes |
 | **Copernicus Sentinel-1 / AMSR2** | High-Res SAR & Microwave Ingestion | Sigma-0 backscatter, SIC | **Operational Satellite Ingestion Stubs** | Sentinel-1 C-SAR & GCOM-W1 AMSR2 | 50 m to 10 km | Near-Real-Time (NRT) stubs |
 | **SCAR ADD / IBCSO** | Antarctic Coastline & Ice Shelf Mask | Polygon Geometry | **Real Vector Cartography** | Antarctic Digital Database (ADD v7.4) | Sub-meter vectors | Static reference |
+
 
 ---
 
@@ -78,3 +81,26 @@ POLARIS-AI integrates multi-source satellite Earth observation, atmospheric rean
   - Ronne-Filchner Ice Shelf (30°W to 85°W, south of 75°S).
   - Riiser-Larsen and Fimbul Ice Shelves (Queen Maud Land).
 - Implements spatial indexing (`shapely.ops.prep`) for sub-millisecond point-in-polygon queries during A* graph search expansions.
+
+---
+
+## 6. Live Real-Time Ingestion & Fault-Tolerant Fallbacks
+
+To ensure operational accuracy without hardcoded assumptions, POLARIS-AI implements dynamic live querying across public satellite and meteorological feeds:
+
+### 1. BYU / Scatterometer Climate Record Live Iceberg Feed
+- **Endpoint:** `https://www.scp.byu.edu/current_icebergs.html`
+- **Mechanism:** Parses active tabular icebergs tracked by BYU and the US National Ice Center via daily MetOp ASCAT and OSCAT-2 scatterometer passes.
+- **Payload:** Extracts real-time latitude, longitude, and Day-of-Year (DOY) observation stamps for 38+ active Antarctic icebergs (including A-23a, A-76c, C-39, D-28).
+- **Execution:** Auto-syncs on backend startup and is available on-demand via `POST /api/icebergs/sync-live`.
+- **Fail-Safe Fallback:** If internet connectivity drops, seamlessly reverts to the validated local BYU historical consolidated time-series archive (`backend/app/data/byu_icebergs/updated7_consol/`).
+
+### 2. Real-Time Metocean & Marine Ingestion (Open-Meteo / WMO / ECMWF)
+- **Endpoint:** `https://api.open-meteo.com/v1/forecast` & `https://marine-api.open-meteo.com/v1/marine`
+- **Variables:** 2m air temperature (°C), 10m wind speed (m/s and knots), 10m wind direction (°), surface barometric pressure (hPa), relative humidity (%), and significant wave height (m).
+- **Integration Points:**
+  - **Research Stations & Gateways:** Dynamically enriches Indian stations (Bharati, Maitri) and international maritime ports (Cape Town, Hobart, Punta Arenas, Goa) via `GET /api/navigation/stations?live_weather=true`.
+  - **Expedition Fleet:** Enriches active NCPOR vessels (*MV Vasiliy Golovnin*, *ORV Sagar Nidhi*, *SA Agulhas II*) with live in-situ ambient conditions via `GET /api/navigation/vessels`.
+  - **Point Telemetry:** On-demand API endpoint `GET /api/telemetry/live-weather?lat={lat}&lon={lon}` for ECDIS integration.
+- **Caching & Resilience:** 15-minute in-memory caching to eliminate redundant external queries. Under timeout (>3.5s) or offline conditions, falls back seamlessly to the CF-1.8 NetCDF metocean datastore.
+

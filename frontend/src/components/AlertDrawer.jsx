@@ -65,13 +65,21 @@ export default function AlertDrawer({ isOpen, onClose, alerts }) {
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span className={`polar-badge ${isCritical ? 'polar-badge-danger' : 'polar-badge-gold'}`} style={{ fontSize: '9px' }}>
-                  {alert.severity}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className={`polar-badge ${isCritical ? 'polar-badge-danger' : 'polar-badge-gold'}`} style={{ fontSize: '9px' }}>
+                    {alert.severity}
+                  </span>
+                  {alert.is_live && (
+                    <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>
+                      LIVE BULLETIN
+                    </span>
+                  )}
+                </div>
                 <span style={{ fontSize: '10px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
                   {alert.id}
                 </span>
               </div>
+
 
               <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>
                 {alert.title}

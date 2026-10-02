@@ -1,19 +1,33 @@
 """
 FastAPI Endpoints and WebSocket for Real-Time Telemetry and NAVAREA Warnings.
 """
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 import asyncio
 import json
 import random
 from ..services.alert_service import alert_service
 from ..services.vessel_service import vessel_service
+from ..data.ingestion import environmental_data_provider
 
 router = APIRouter(prefix="/telemetry", tags=["Telemetry & Alerts"])
 
+
 @router.get("/alerts")
 def get_active_navigational_alerts():
-    """Returns active polar hazard bulletins and NAVAREA warnings."""
+    """Returns active polar hazard bulletins and NAVAREA warnings dynamically evaluated against live conditions."""
     return alert_service.list_alerts()
+
+@router.get("/live-weather")
+def get_live_metocean_weather(
+    lat: float = Query(..., ge=-90.0, le=90.0, description="Latitude in decimal degrees"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude in decimal degrees")
+):
+    """
+    Fetches real-time metocean weather (2m temperature, 10m wind speed, wind direction, 
+    surface pressure, significant wave height) for any polar or ocean coordinates.
+    """
+    return environmental_data_provider.get_live_weather(lat=lat, lon=lon)
+
 
 @router.websocket("/ws")
 async def websocket_telemetry_endpoint(websocket: WebSocket):

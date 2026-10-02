@@ -19,9 +19,15 @@ export const api = {
   },
 
   // Icebergs
-  async getIcebergs() {
-    const res = await fetch(`${API_BASE_URL}/icebergs`);
+  async getIcebergs(refreshLive = false) {
+    const res = await fetch(`${API_BASE_URL}/icebergs?refresh_live=${refreshLive}`);
     if (!res.ok) throw new Error('Failed to fetch icebergs');
+    return res.json();
+  },
+
+  async syncLiveIcebergs() {
+    const res = await fetch(`${API_BASE_URL}/icebergs/sync-live`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to sync live satellite icebergs');
     return res.json();
   },
 
@@ -32,8 +38,8 @@ export const api = {
   },
 
   // Waypoints & Stations
-  async getStations() {
-    const res = await fetch(`${API_BASE_URL}/navigation/stations`);
+  async getStations(liveWeather = false) {
+    const res = await fetch(`${API_BASE_URL}/navigation/stations?live_weather=${liveWeather}`);
     if (!res.ok) throw new Error('Failed to fetch polar stations');
     return res.json();
   },
@@ -49,6 +55,14 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch NCPOR vessels');
     return res.json();
   },
+
+  // Real-time Metocean Weather
+  async getLiveWeather(lat, lon) {
+    const res = await fetch(`${API_BASE_URL}/telemetry/live-weather?lat=${lat}&lon=${lon}`);
+    if (!res.ok) throw new Error('Failed to fetch live metocean weather');
+    return res.json();
+  },
+
 
   // Route Optimization (Pareto corridors)
   async optimizeRoute(payload) {

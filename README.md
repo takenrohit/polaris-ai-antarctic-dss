@@ -30,6 +30,8 @@ Key technical capabilities include:
 ```
 +------------------------------------------------------------------------+
 |                        DATA INGESTION LAYER                            |
+|  - Live BYU/ASCAT Satellite Scatterometer Feed (38+ active icebergs)   |
+|  - Real-Time Global Metocean & Marine Ingestion (Open-Meteo / ECMWF)   |
 |  - CF-1.8 NetCDF-4 Metocean Store (antarctic_metocean_reference.nc)    |
 |  - NOAA/NSIDC G02135 Daily Satellite SIC (EPSG:3412 -> WGS84)          |
 |  - Daily Reanalysis & Proxy Fields (ERA5 Winds, Geostrophic Currents)  |
@@ -59,9 +61,12 @@ Key technical capabilities include:
 |  /api/forecast/sea-ice     - 7-day spatiotemporal grid and IIEE metrics|
 |  /api/forecast/metrics     - Lead-time validation statistics           |
 |  /api/icebergs             - Active iceberg registry and 120h cones    |
+|  /api/icebergs/sync-live   - BYU/ASCAT live satellite scatterometer    |
 |  /api/navigation/optimize  - 4 Pareto navigation corridors             |
 |  /api/navigation/export    - GeoJSON route export for ECDIS / OpenCPN  |
+|  /api/telemetry/live-weather- Real-time global metocean & marine feed  |
 |  /api/telemetry/ws         - Simulated AIS telemetry demonstration     |
+
 +-----------------------------------┬------------------------------------+
                                     │
 +-----------------------------------▼------------------------------------+

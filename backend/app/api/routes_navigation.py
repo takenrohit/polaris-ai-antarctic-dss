@@ -23,10 +23,30 @@ class RouteOptimizationRequest(BaseModel):
     departure_time_offset_hours: float = Field(default=0.0, ge=0.0, le=168.0, description="Departure timing offset in hours (e.g. 0h, 24h, 48h)")
     scenario: Optional[str] = Field(default="STANDARD", description="Operational scenario: 'STANDARD' or 'LATE_SEASON_MIZ'")
 
+from ..data.ingestion import environmental_data_provider
+
 @router.get("/stations")
-def get_polar_waypoints():
+def get_polar_waypoints(live_weather: bool = Query(default=False, description="Enrich stations with live observed weather")):
     """Returns Antarctic research stations (Bharati, Maitri) and maritime gateway ports."""
-    return ANTARCTIC_WAYPOINTS
+    if not live_weather:
+        return ANTARCTIC_WAYPOINTS
+
+    enriched = {}
+    for key, data in ANTARCTIC_WAYPOINTS.items():
+        st_copy = dict(data)
+        try:
+            w = environmental_data_provider.get_live_weather(data["lat"], data["lon"], timeout_s=2.5)
+            st_copy["live_weather"] = w
+        except Exception:
+            st_copy["live_weather"] = None
+        enriched[key] = st_copy
+    return enriched
+
+@router.get("/stations/live-weather")
+def get_stations_live_weather():
+    """Returns all Antarctic research stations and gateway ports enriched with real-time live metocean observations."""
+    return get_polar_waypoints(live_weather=True)
+
 
 @router.get("/polar-classes")
 def get_imo_polar_classes():

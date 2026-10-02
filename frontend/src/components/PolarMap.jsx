@@ -248,7 +248,7 @@ export default function PolarMap({
               </Tooltip>
 
               <Popup>
-                <div style={{ padding: '4px', maxWidth: '220px' }}>
+                <div style={{ padding: '4px', maxWidth: '230px' }}>
                   <div style={{ fontWeight: '700', fontSize: '13px', color: isIndian ? '#ea580c' : '#0284c7' }}>
                     {isIndian ? '🇮🇳 ' : ''}{st.name}
                   </div>
@@ -258,6 +258,18 @@ export default function PolarMap({
                   <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', marginTop: '4px', color: '#0f172a' }}>
                     {st.lat.toFixed(3)}°S, {st.lon.toFixed(3)}°E
                   </div>
+                  {st.live_weather && (
+                    <div style={{ marginTop: '6px', borderTop: '1px solid #e2e8f0', paddingTop: '4px', fontSize: '10px', color: '#334155' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>🌡️ Temp: <strong>{st.live_weather.temperature_2m_c}°C</strong></span>
+                        <span>💨 Wind: <strong>{st.live_weather.wind_speed_knots} kts</strong></span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px', color: '#64748b' }}>
+                        <span>🧭 {st.live_weather.surface_pressure_hpa} hPa</span>
+                        <span style={{ color: '#059669', fontWeight: '600' }}>● Live Metocean</span>
+                      </div>
+                    </div>
+                  )}
                   {st.access_fast_ice_zone && (
                     <div className="polar-badge polar-badge-gold" style={{ marginTop: '8px', fontSize: '10px' }}>
                       Fast-Ice Approach Corridor
@@ -283,7 +295,7 @@ export default function PolarMap({
             </Tooltip>
 
             <Popup>
-              <div style={{ padding: '4px', minWidth: '200px' }}>
+              <div style={{ padding: '4px', minWidth: '210px' }}>
                 <div style={{ fontWeight: '700', fontSize: '13px', color: '#0284c7' }}>
                   🚢 {v.name}
                 </div>
@@ -294,6 +306,18 @@ export default function PolarMap({
                   <div>Speed: <strong>{v.current_position.speed_knots} kts</strong> ({v.current_position.heading_deg}°)</div>
                   <div>Fuel Flow: <strong>{v.current_position.fuel_flow_mth} MT/h</strong></div>
                   <div>POLARIS: <span style={{ color: '#059669', fontWeight: '700' }}>+{v.current_position.ice_class_rio} RIO (NORMAL)</span></div>
+                  {v.current_position.ambient_temp_c !== undefined && (
+                    <div style={{ marginTop: '4px', borderTop: '1px solid #e2e8f0', paddingTop: '4px', fontSize: '10px', color: '#334155' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>🌡️ Ambient: <strong>{v.current_position.ambient_temp_c}°C</strong></span>
+                        <span>💨 Wind: <strong>{v.current_position.wind_speed_knots} kts</strong></span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px', color: '#64748b' }}>
+                        <span>🌊 Waves: <strong>{v.current_position.significant_wave_height_m}m</strong></span>
+                        <span style={{ color: '#059669', fontWeight: '600' }}>● Live Weather</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </Popup>
@@ -356,9 +380,16 @@ export default function PolarMap({
                 </Tooltip>
 
                 <Popup>
-                  <div style={{ padding: '4px', minWidth: '210px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: color }}>
-                      ⚠️ {berg.name}
+                  <div style={{ padding: '4px', minWidth: '220px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontWeight: '700', fontSize: '13px', color: color }}>
+                        ⚠️ {berg.name}
+                      </div>
+                      {berg.is_live && (
+                        <span style={{ fontSize: '9px', background: '#dcfce7', color: '#15803d', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>
+                          LIVE SATELLITE
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
                       Calved: {berg.calving_source} ({berg.origin_year})
@@ -378,6 +409,7 @@ export default function PolarMap({
             </React.Fragment>
           );
         })}
+
 
         {/* Optimized Navigation Routes */}
         {routes && Object.entries(routes).map(([modeKey, route]) => {

@@ -23,9 +23,16 @@ class NewIcebergPayload(BaseModel):
     surveillance_source: str = "Sentinel-1 SAR Real-time Ingestion"
 
 @router.get("")
-def list_icebergs():
+def list_icebergs(refresh_live: bool = Query(False, description="Trigger on-demand live satellite feed re-sync from BYU/ASCAT")):
     """Returns active tracked Antarctic icebergs (BYU / US National Ice Center registry)."""
+    if refresh_live:
+        iceberg_service.sync_live_byu_feed(timeout_s=4.0)
     return iceberg_service.list_icebergs()
+
+@router.post("/sync-live")
+def sync_live_satellite_icebergs():
+    """Fetches near-real-time satellite scatterometer fixes directly from BYU/ASCAT live feed."""
+    return iceberg_service.sync_live_byu_feed(timeout_s=5.0)
 
 @router.get("/trajectories")
 def get_all_trajectories(

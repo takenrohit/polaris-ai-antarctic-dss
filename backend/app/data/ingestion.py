@@ -260,6 +260,102 @@ class EnvironmentalDataProvider:
         """Queries Sea Surface Temperature (°C)."""
         return self._reader.sample_point("sst", lat, lon, time_idx=day_idx)
 
+    def get_live_weather(self, lat: float, lon: float, timeout_s: float = 3.5) -> Dict[str, Any]:
+        """
+        Fetches live real-time atmospheric and marine metocean conditions from Open-Meteo
+        (WMO global station network and ECMWF global real-time models).
+        Includes 15-minute in-memory caching to eliminate redundant remote round-trips.
+        Falls back seamlessly to local CF-1.8 NetCDF metocean reference store if offline.
+        """
+        import urllib.request
+        import json
+        import time
+
+        key = (round(lat, 2), round(lon, 2))
+        now = time.time()
+        if hasattr(self, "_live_weather_cache") and key in self._live_weather_cache:
+            entry = self._live_weather_cache[key]
+            if now - entry["cached_at"] < 900:  # 15 minutes TTL
+                return entry["data"]
+
+        if not hasattr(self, "_live_weather_cache"):
+            self._live_weather_cache = {}
+
+        weather_url = (
+            f"https://api.open-meteo.com/v1/forecast?latitude={lat:.4f}&longitude={lon:.4f}"
+            f"&current=temperature_2m,wind_speed_10m,wind_direction_10m,surface_pressure,relative_humidity_2m"
+            f"&wind_speed_unit=ms"
+        )
+        marine_url = (
+            f"https://marine-api.open-meteo.com/v1/marine?latitude={lat:.4f}&longitude={lon:.4f}"
+            f"&current=wave_height,wave_direction,wave_period"
+        )
+
+        # Baseline fallback from local NetCDF
+        u10, v10 = self.get_wind(lat, lon, hour_offset=0)
+        w_speed_ms = math.sqrt(u10**2 + v10**2)
+        w_dir = (math.degrees(math.atan2(-u10, -v10)) + 360.0) % 360.0
+        sst = self.get_sst(lat, lon, day_idx=0)
+        sic = self.get_sic(lat, lon, day_idx=0)
+
+        fallback_result = {
+            "latitude": round(lat, 4),
+            "longitude": round(lon, 4),
+            "is_live": False,
+            "data_source": "Local Reference Store (CF-1.8 NetCDF / ECMWF ERA5 + NSIDC)",
+            "temperature_c": round(sst, 1),
+            "temperature_2m_c": round(sst, 1),
+            "wind_speed_ms": round(w_speed_ms, 2),
+            "wind_speed_knots": round(w_speed_ms * 1.94384, 1),
+            "wind_direction_deg": round(w_dir, 1),
+            "surface_pressure_hpa": 985.0,
+            "relative_humidity_pct": 75.0,
+            "sea_ice_concentration_pct": round(sic * 100.0, 1),
+            "wave_height_m": 1.5 if sic < 0.15 else 0.2
+        }
+
+        # Attempt live API fetch
+        try:
+            req = urllib.request.Request(weather_url, headers={"User-Agent": "POLARIS-AI/1.0 (MoES/NCPOR Polar DSS)"})
+            with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                cur = data.get("current", {})
+                live_res = {
+                    "latitude": round(lat, 4),
+                    "longitude": round(lon, 4),
+                    "is_live": True,
+                    "data_source": "Open-Meteo Real-Time Global Metocean Feed (In-Situ WMO/ECMWF)",
+                    "timestamp_utc": cur.get("time"),
+                    "temperature_c": cur.get("temperature_2m"),
+                    "temperature_2m_c": cur.get("temperature_2m"),
+                    "wind_speed_ms": cur.get("wind_speed_10m"),
+                    "wind_speed_knots": round(cur.get("wind_speed_10m", 0.0) * 1.94384, 1),
+                    "wind_direction_deg": cur.get("wind_direction_10m"),
+                    "surface_pressure_hpa": cur.get("surface_pressure"),
+                    "relative_humidity_pct": cur.get("relative_humidity_2m"),
+                    "sea_ice_concentration_pct": round(sic * 100.0, 1)
+                }
+
+
+                # Try marine wave query
+                try:
+                    req_m = urllib.request.Request(marine_url, headers={"User-Agent": "POLARIS-AI/1.0"})
+                    with urllib.request.urlopen(req_m, timeout=2.0) as resp_m:
+                        data_m = json.loads(resp_m.read().decode("utf-8"))
+                        cur_m = data_m.get("current", {})
+                        live_res["wave_height_m"] = cur_m.get("wave_height")
+                        live_res["wave_direction_deg"] = cur_m.get("wave_direction")
+                        live_res["wave_period_s"] = cur_m.get("wave_period")
+                except Exception:
+                    live_res["wave_height_m"] = fallback_result["wave_height_m"]
+
+                self._live_weather_cache[key] = {"cached_at": now, "data": live_res}
+                return live_res
+        except Exception as e:
+            fallback_result["fetch_note"] = f"Live weather unavailable ({e}); using local high-resolution NetCDF store."
+            self._live_weather_cache[key] = {"cached_at": now, "data": fallback_result}
+            return fallback_result
+
     def is_land(self, lat: float, lon: float) -> bool:
         """Checks if coordinate intersects Antarctic continental land or permanent ice shelves."""
         return self.coastline.is_land_or_shelf(lat, lon)

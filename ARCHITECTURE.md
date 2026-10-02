@@ -68,9 +68,10 @@ sih59/
 │   ├── app/
 │   │   ├── api/                     # FastAPI route controllers
 │   │   │   ├── routes_forecast.py   # ConvLSTM inference & benchmark endpoints
-│   │   │   ├── routes_icebergs.py   # Iceberg trajectories & BYU surveillance
+│   │   │   ├── routes_icebergs.py   # Iceberg trajectories & live BYU satellite sync
 │   │   │   ├── routes_navigation.py # 4D A* optimization & GeoJSON export
-│   │   │   └── routes_telemetry.py  # WebSocket AIS telemetry
+│   │   │   └── routes_telemetry.py  # Real-time metocean weather & WebSocket AIS
+
 │   │   ├── core/                    # Quality assurance & polar geodesics
 │   │   │   ├── geodesics.py         # Haversine, bearing, antimeridian wrapping
 │   │   │   └── validators.py        # Vessel engineering validation & data quality
@@ -91,9 +92,11 @@ sih59/
 │   │   ├── build_real_antarctic_dataset.py
 │   │   └── train_convlstm.py
 │   └── tests/                       # Automated pytest verification suites
+│       ├── test_live_ingestion.py   # Live satellite & metocean ingestion (4 tests)
 │       ├── test_models.py           # Core scientific & API tests (17 tests)
 │       ├── test_polar_geodesics.py  # Geodesic & coordinate tests (6 tests)
 │       └── test_robustness_and_safety.py # Quality gate & safety tests (8 tests)
+
 ├── evaluation/                      # Model benchmarking & ablation suite
 │   ├── run_evaluation.py            # Standalone scientific evaluation script
 │   └── results/                     # Evaluation reports and JSON metrics

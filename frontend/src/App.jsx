@@ -58,10 +58,11 @@ export default function App() {
         ] = await Promise.all([
           api.getSeaIceForecast(7, 45),
           api.getModelBenchmarks(),
-          api.getStations(),
+          api.getStations(true),
           api.getPolarClasses(),
           api.getVessels(),
           api.getIcebergs(),
+
           api.getIcebergTrajectories(120),
           api.getAlerts()
         ]);
