@@ -51,3 +51,9 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Live data (rebuilt by backend/scripts/refresh_live_data.py; do not commit)
+backend/app/data/antarctic_metocean_live.nc
+backend/app/data/antarctic_metocean_live.nc.tmp
+backend/app/data/live_cache/
+

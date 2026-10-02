@@ -109,7 +109,7 @@ class PolarRouteOptimizer:
 
         # 2. Data quality assessment gate
         data_quality = assess_data_quality(
-            observation_iso="2026-01-21T00:00:00Z",
+            observation_iso=self.data_provider.latest_observation_iso(),
             has_sic=True,
             has_wind=True,
             has_currents=True

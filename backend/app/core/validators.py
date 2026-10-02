@@ -126,19 +126,25 @@ def assess_data_quality(
     if not has_currents:
         reasons.append("Surface ocean currents unavailable")
 
-    latency_hours = 0.0
+    # Unknown or unparseable observation time means the data age cannot be verified.
+    # That is treated as unsafe (fail-safe), never as "fresh".
+    latency_hours: Optional[float] = None
     if observation_iso:
         try:
             obs_dt = datetime.fromisoformat(observation_iso.replace("Z", "+00:00"))
+            if obs_dt.tzinfo is None:
+                obs_dt = obs_dt.replace(tzinfo=timezone.utc)
             latency_hours = max(0.0, (now - obs_dt).total_seconds() / 3600.0)
-        except Exception:
-            latency_hours = 12.0
-    else:
-        # Default freshness age of current satellite reference pass
-        latency_hours = 14.5
+        except ValueError:
+            latency_hours = None
 
-    # Fail-safe gate logic tied directly to data freshness
-    if latency_hours > max_latency_hours:
+    if latency_hours is None:
+        fail_safe_gate_tripped = True
+        reasons.append(
+            "Observation timestamp missing or unparseable: data age cannot be verified. "
+            "Automatic navigation guidance locked under IMO fail-safe protocol."
+        )
+    elif latency_hours > max_latency_hours:
         fail_safe_gate_tripped = True
         reasons.append(
             f"Data freshness alert: Metocean observation latency ({latency_hours:.1f}h) "
@@ -157,9 +163,13 @@ def assess_data_quality(
         "quality_status": status,
         "is_safe_for_decision_support": (status == "OPERATIONAL"),
         "fail_safe_gate_tripped": fail_safe_gate_tripped,
-        "data_freshness_hours": round(latency_hours, 1),
+        "data_freshness_hours": None if latency_hours is None else round(latency_hours, 1),
         "freshness_threshold_hours": max_latency_hours,
-        "data_freshness_indicator": "FRESH" if latency_hours <= 24.0 else ("STALE" if latency_hours <= max_latency_hours else "EXPIRED"),
+        "data_freshness_indicator": (
+            "UNKNOWN" if latency_hours is None
+            else "FRESH" if latency_hours <= 24.0
+            else ("STALE" if latency_hours <= max_latency_hours else "EXPIRED")
+        ),
         "timestamp_utc": now.isoformat(),
         "alerts": reasons
     }

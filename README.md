@@ -228,6 +228,20 @@ docker-compose up --build
 
 ---
 
+### Live Data Mode
+
+By default the app serves a frozen January-2026 snapshot, which the freshness gate correctly reports as stale (`DO_NOT_USE_FOR_NAVIGATION`). To run on current data:
+
+```bash
+python backend/scripts/refresh_live_data.py        # fetch NSIDC G02135 sea ice + Open-Meteo winds, build the live store
+POLARIS_DATA_MODE=auto uvicorn app.main:app        # live store is picked up automatically
+curl localhost:8000/api/forecast/ingestion-status  # real data age, source provenance, gate state
+```
+
+Sources are keyless public feeds. Currents and "SST" remain proxies, winds are NWP rather than ERA5, and live forecasts carry no skill metrics. Details in `DATA_SOURCES.md` (section 3b) and `LIMITATIONS.md` (section 4.6). Optional hot reload: set `POLARIS_REFRESH_TOKEN` and `POST /api/forecast/refresh` with `X-Refresh-Token`.
+
+---
+
 ## Technical Documentation Suite
 
 For rigorous auditing and polar compliance evaluation, comprehensive documentation is provided:

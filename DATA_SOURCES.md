@@ -55,6 +55,23 @@ POLARIS-AI integrates multi-source satellite Earth observation, atmospheric rean
 
 ---
 
+## 3b. Live Mode (rolling store, keyless public sources)
+
+`POLARIS_DATA_MODE` selects the backing store: `auto` (default: live store if it exists, else the frozen January-2026 snapshot), `live` (build the live store on first start, fall back to the snapshot if the fetch fails), or `snapshot`.
+
+| Variable | Live source | Latency / caveat |
+|---|---|---|
+| Sea-ice concentration | NOAA@NSIDC G02135 v4.0 daily GeoTIFFs, `noaadata.apps.nsidc.org/NOAA/G02135/south/daily/geotiff/` (no login) | Newest published day is found by walking back from today; observation time is stamped 00:00 UTC of that valid day (conservative for the freshness gate). Up to 3 missing days are gap-filled and recorded in `gap_filled_dates`; more refuses the build. |
+| 10 m wind, 2 m temperature | Open-Meteo forecast API (`past_days` + `forecast_days`), 40 sample points, IDW-interpolated as in the snapshot builder | Best-match NWP analysis/forecast, **not ERA5 reanalysis**. Includes 7 forward days used for voyage timing. CC BY 4.0, free for non-commercial use: attribute Open-Meteo. |
+| Ocean currents | Analytic ACC / coastal-current **proxy** (unchanged) | Not CMEMS. Replace with CMEMS GLORYS12 for real operations. |
+| "SST" | 2 m air temperature **proxy** (unchanged) | Not satellite SST. |
+
+Refresh with `python backend/scripts/refresh_live_data.py` (cron it every few hours) or `POST /api/forecast/refresh` with header `X-Refresh-Token` (disabled unless `POLARIS_REFRESH_TOKEN` is set). A failed refresh leaves the previous store in place; once the newest observation is older than 48 h the fail-safe gate trips to `DO_NOT_USE_FOR_NAVIGATION`.
+
+Sentinel-1 and AMSR2 remain stubs and are not part of the live feed.
+
+---
+
 ## 4. Iceberg Surveillance Archive (BYU / USNIC)
 
 ### Database Structure

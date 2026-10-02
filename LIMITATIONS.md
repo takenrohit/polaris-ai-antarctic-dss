@@ -63,3 +63,11 @@
 ### 5. MIZ Stress Test Uses a Synthetic Scenario
 - The Late-Season Marginal Ice Zone (MIZ) stress test applies a synthetic latitude/longitude gradient SIC formula — not real forecast data or trained model output. This is designed to stress-test routing differentiation, not to represent an observed real-world ice field.
 - Because all four routes share the same fixed destination at Bharati Station (69.4°S, 76.2°E), the minimum POLARIS RIO at the final waypoint is identically 12 across all modes. The **Restricted Leg Fraction** (fraction of waypoints with POLARIS RIO ≤ 20, representing speed-restricting heavy ice conditions evaluated across 60 dense corridor waypoints) separates the modes: **16.7%** for Fastest Transit vs **15.0%** for Balanced and Eco-Fuel, and **13.3%** for Maximum Safety.
+
+### 6. Live Mode Limits
+
+- **Forecast skill is unchanged.** Live mode makes the forecast current (origin = newest observed day), not better. The hybrid was only validated on one January-2026 window; live mode has no ground truth, so `/forecast/sea-ice` returns `forecast_mode: "live"` with no skill metrics. Rolling verification against later observations is not implemented.
+- **Season mismatch.** The ConvLSTM weights were trained on January data only. In other seasons the 2 % neural term is untrained for the regime, and the α schedule is re-fitted on the preceding 14 days of that season only.
+- **Winds are NWP, not reanalysis,** and ocean currents and "SST" are still proxies (see `DATA_SOURCES.md`, section 3b).
+- **Freshness depends on NSIDC publication.** An NSIDC outage or the free Open-Meteo tier being unavailable stops refreshes; the system then degrades to `DO_NOT_USE_FOR_NAVIGATION` after 48 h rather than silently serving stale data. A missing or unparseable observation time also trips the gate.
+- The `POST /api/forecast/refresh` endpoint is token-guarded and disabled by default; do not expose it publicly without TLS and a strong token.

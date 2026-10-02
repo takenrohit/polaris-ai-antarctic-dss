@@ -1,10 +1,15 @@
 """
 FastAPI Endpoints for Sea-Ice Forecasting and ML vs Persistence Benchmarks.
 """
-from fastapi import APIRouter, Query
+import os
+import secrets
+import threading
+from fastapi import APIRouter, Header, HTTPException, Query
 from typing import Optional
 import numpy as np
 from ..models.sea_ice_convlstm import sea_ice_predictor
+from ..data.ingestion import environmental_data_provider, LIVE_NC_PATH, LIVE_CACHE_DIR
+from ..core.validators import assess_data_quality
 from ..config import settings
 
 router = APIRouter(prefix="/forecast", tags=["Sea-Ice Forecasting"])
@@ -26,12 +31,22 @@ def get_sea_ice_forecast(
     - Persistence baseline predictions
     - Quantified evaluation metrics (RMSE, Integrated Ice Edge Error IIEE in km²)
     """
-    return sea_ice_predictor.forecast(
-        lat_grid=DEFAULT_LATS,
-        lon_grid=DEFAULT_LONS,
-        days_ahead=days_ahead,
-        current_day_of_year=day_of_year
-    )
+    if environmental_data_provider.mode == "live":
+        # Operational forecast from the newest observed day (no ground truth, no skill metrics)
+        result = sea_ice_predictor.forecast_live(
+            lat_grid=DEFAULT_LATS, lon_grid=DEFAULT_LONS, days_ahead=days_ahead
+        )
+    else:
+        # Frozen snapshot: fixed-window hindcast scored against held-out observed days
+        result = sea_ice_predictor.forecast(
+            lat_grid=DEFAULT_LATS,
+            lon_grid=DEFAULT_LONS,
+            days_ahead=days_ahead,
+            current_day_of_year=day_of_year
+        )
+        result["forecast_mode"] = "hindcast_snapshot"
+    result["data_source"] = environmental_data_provider.metadata()
+    return result
 
 @router.get("/metrics")
 def get_model_benchmarks():
@@ -62,37 +77,68 @@ def ingest_amsr2_radiometer(date_str: Optional[str] = "2026-01-21", sector: Opti
 @router.get("/ingestion-status")
 def get_ingestion_sources_status():
     """
-    Returns operational health, sensor resolution, and latency for all satellite feeds.
+    Real provenance and freshness of the active data store, tied to the fail-safe gate.
+    Sentinel-1 / AMSR2 are reported as not ingested (stubs only); no latency is invented.
     """
+    meta = environmental_data_provider.metadata()
+    quality = assess_data_quality(observation_iso=meta["latest_observation_iso"])
     return {
-        "status": "OPERATIONAL",
+        "status": quality["quality_status"],
+        "fail_safe_gate_tripped": quality["fail_safe_gate_tripped"],
+        "data_freshness_indicator": quality["data_freshness_indicator"],
+        "alerts": quality["alerts"],
+        "data_mode": meta["mode"],
         "primary_feed": {
-            "name": "NOAA/NSIDC G02135 Daily CDR v4.0",
+            "name": "NOAA@NSIDC G02135 Sea Ice Index v4.0 daily concentration",
             "resolution": "25 km polar stereographic (EPSG:3412)",
-            "latency_hours": 14.5,
-            "status": "ACTIVE"
+            "latest_observation_iso": meta["latest_observation_iso"],
+            "latency_hours": meta["data_age_hours"],
+            "observed_days": meta["observed_days"],
+            "gap_filled_dates": meta["gap_filled_dates"],
+            "fetched_at_utc": meta["fetched_at_utc"],
+            "status": "ACTIVE" if meta["is_live"] else "FROZEN_SNAPSHOT",
         },
-        "sentinel1_sar": {
-            "name": "Copernicus Sentinel-1 EW GRD",
-            "resolution": "40 m",
-            "latency_hours": 3.5,
-            "status": "STUB_OPERATIONAL"
-        },
-        "amsr2_microwave": {
-            "name": "JAXA GCOM-W1 AMSR2 Level-3",
-            "resolution": "6.25 km",
-            "latency_hours": 5.2,
-            "status": "STUB_OPERATIONAL"
-        },
+        "sentinel1_sar": {"name": "Copernicus Sentinel-1 EW GRD", "status": "NOT_INGESTED_STUB"},
+        "amsr2_microwave": {"name": "JAXA GCOM-W1 AMSR2 Level-3", "status": "NOT_INGESTED_STUB"},
         "atmospheric_forcing": {
-            "name": "ECMWF ERA5 Reanalysis 10m Wind & Temp",
-            "resolution": "0.25° (~25 km)",
-            "status": "ACTIVE"
+            "name": meta["wind_source"],
+            "forecast_days_available": meta["forecast_wind_days"],
+            "status": "ACTIVE" if meta["is_live"] else "FROZEN_SNAPSHOT",
         },
         "ocean_currents": {
-            "name": "Synthetic Geostrophic Proxy (not real CMEMS data — analytic ACC + coastal counter-current formula)",
-            "resolution": "0.25° analytic grid",
-            "status": "SYNTHETIC_PROXY"
-        }
+            "name": meta["currents_source"],
+            "status": "SYNTHETIC_PROXY",
+        },
+        "sst": {"name": meta["sst_source"], "status": "PROXY"},
     }
 
+
+_refresh_lock = threading.Lock()
+
+
+@router.post("/refresh")
+def refresh_live_data(x_refresh_token: Optional[str] = Header(default=None)):
+    """
+    Fetch the latest NSIDC sea ice + Open-Meteo winds, rebuild the live store, and reload it.
+
+    Disabled unless the POLARIS_REFRESH_TOKEN environment variable is set; callers must send
+    the same value in the X-Refresh-Token header. On failure the previous store stays active.
+    """
+    expected = os.environ.get("POLARIS_REFRESH_TOKEN")
+    if not expected:
+        raise HTTPException(status_code=403, detail="Live refresh is disabled (POLARIS_REFRESH_TOKEN not set).")
+    if not x_refresh_token or not secrets.compare_digest(x_refresh_token, expected):
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+    if not _refresh_lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="A refresh is already running.")
+    try:
+        from ..data.live_fetch import build_live_store, LiveFetchError
+        try:
+            summary = build_live_store(LIVE_NC_PATH, LIVE_CACHE_DIR)
+        except LiveFetchError as exc:
+            raise HTTPException(status_code=502, detail=f"Live fetch failed; previous store kept: {exc}")
+        environmental_data_provider.reload(str(LIVE_NC_PATH))
+        sea_ice_predictor.invalidate_cache()
+        return {"refreshed": True, "summary": summary, "data_source": environmental_data_provider.metadata()}
+    finally:
+        _refresh_lock.release()

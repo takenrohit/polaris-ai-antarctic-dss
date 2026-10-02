@@ -12,6 +12,7 @@ import numpy as np
 from typing import Dict, Any, Tuple, List, Optional
 
 from ..data.ingestion import environmental_data_provider
+from .live_forecast import hybrid_forecast_from_latest
 
 WEIGHTS_PATH = Path(__file__).resolve().parent.parent / "data" / "weights" / "convlstm_antarctic.pt"
 
@@ -153,7 +154,10 @@ class SeaIcePredictor:
         if self._cached_forecast_grid is None:
             lats = np.linspace(-78.0, -56.0, 33)
             lons = np.linspace(-180.0, 180.0, 45)
-            res = self.forecast(lats, lons, days_ahead=7)
+            if environmental_data_provider.mode == "live":
+                res = self.forecast_live(lats, lons, days_ahead=7)
+            else:
+                res = self.forecast(lats, lons, days_ahead=7)
             self._cached_lats = lats
             self._cached_lons = lons
             self._cached_forecast_grid = np.array([d["model_grid"] for d in res["forecast_days"]]) # (7, H, W)
@@ -178,6 +182,69 @@ class SeaIcePredictor:
 
         val = (1.0 - di) * (1.0 - dj) * arr[i0, j0] + (1.0 - di) * dj * arr[i0, j1] + di * (1.0 - dj) * arr[i1, j0] + di * dj * arr[i1, j1]
         return float(np.clip(val, 0.0, 1.0))
+
+    def invalidate_cache(self) -> None:
+        """Drop the cached router forecast grid (call after the data store is refreshed)."""
+        self._cached_forecast_grid = None
+        self._cached_lats = None
+        self._cached_lons = None
+
+    def forecast_live(
+        self,
+        lat_grid: np.ndarray,
+        lon_grid: np.ndarray,
+        days_ahead: int = 7,
+        current_day_of_year: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Operational forecast from the NEWEST observed day of the live store.
+
+        Unlike ``forecast`` (a fixed-window hindcast scored against later observations), there
+        is no ground truth here, so no skill metrics are produced. Blend math lives in
+        ``live_forecast`` (torch-free, unit-tested); only the neural residual is computed here.
+        """
+        raw_sequence = environmental_data_provider.get_gridded_sequence(
+            lat_grid, lon_grid, num_days=21
+        )
+        history_seq = raw_sequence[-5:]                       # (5, 5, H, W), newest last
+        input_tensor = torch.tensor(np.array([history_seq]), dtype=torch.float32, device=self.device)
+        with torch.no_grad():
+            preds_raw = self.model(input_tensor, future_steps=days_ahead)
+            raw_convlstm_preds = preds_raw[0, :, 0].cpu().numpy()
+        nn_deltas = raw_convlstm_preds - history_seq[-1, 0]
+
+        res = hybrid_forecast_from_latest(
+            raw_sequence, lat_grid, lon_grid, days_ahead=days_ahead, nn_deltas=nn_deltas
+        )
+        meta = environmental_data_provider.metadata()
+        cap, base, exp = res["alpha_params"]
+        return {
+            "days_ahead": days_ahead,
+            "forecast_mode": "live",
+            "base_observation_iso": meta["latest_observation_iso"],
+            "data_age_hours": meta["data_age_hours"],
+            "latitudes": lat_grid.tolist(),
+            "longitudes": lon_grid.tolist(),
+            "ground_truth_day0": np.round(res["baseline"], 3).tolist(),
+            "forecast_days": [
+                {
+                    "day": d + 1,
+                    "model_grid": np.round(res["model"][d], 3).tolist(),
+                    "persistence_grid": np.round(res["persistence"][d], 3).tolist(),
+                    "ground_truth_grid": None,
+                    "metrics": None
+                }
+                for d in range(days_ahead)
+            ],
+            "lead_time_evaluations": [],
+            "benchmark_summary": {
+                "evaluation_split": "None - operational forecast, no ground truth exists yet",
+                "alpha_params": {"cap": cap, "base": base, "exp": exp,
+                                 "fitted_on": "oldest 14 days of the rolling window"},
+                "verdict": "Operational forecast from the newest observed day. Skill of this hybrid "
+                           "is comparable to persistence on the one validated window (see EVALUATION.md)."
+            }
+        }
 
     def forecast(
         self,

@@ -10,7 +10,7 @@ Models tabular iceberg drift governed by:
 """
 import numpy as np
 import math
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 
 class IcebergDriftModel:
     """

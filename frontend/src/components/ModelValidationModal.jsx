@@ -15,15 +15,15 @@ export default function ModelValidationModal({ isOpen, onClose, benchmarkData })
     ? `${summary.avg_iiee_reduction_pct}%`
     : evals.length > 0
       ? `${(evals.reduce((acc, r) => acc + (r.iiee_reduction_pct || 0), 0) / evals.length).toFixed(1)}%`
-      : '28.3%';
+      : '—';
 
   const earlyLeadModelRmse = evals.length > 0
     ? (evals.slice(0, 3).reduce((acc, r) => acc + (r.convlstm_rmse || 0), 0) / Math.min(evals.length, 3)).toFixed(3)
-    : (summary?.avg_model_rmse?.toFixed(3) || '0.059');
+    : (summary?.avg_model_rmse?.toFixed(3) || '—');
 
   const earlyLeadPersistRmse = evals.length > 0
     ? (evals.slice(0, 3).reduce((acc, r) => acc + (r.persistence_rmse || 0), 0) / Math.min(evals.length, 3)).toFixed(3)
-    : (summary?.avg_persistence_rmse?.toFixed(3) || '0.086');
+    : (summary?.avg_persistence_rmse?.toFixed(3) || '—');
 
   const maxIiee = evals.length > 0
     ? Math.max(...evals.map((e) => Math.max(e.convlstm_iiee_km2 || 0, e.persistence_iiee_km2 || 0)), 10000) * 1.15

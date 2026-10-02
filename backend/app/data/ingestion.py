@@ -19,6 +19,8 @@ from shapely.ops import prep
 
 DATA_DIR = Path(__file__).parent.resolve()
 DEFAULT_NC_PATH = DATA_DIR / "antarctic_metocean_reference.nc"
+LIVE_NC_PATH = DATA_DIR / "antarctic_metocean_live.nc"
+LIVE_CACHE_DIR = DATA_DIR / "live_cache"
 
 
 class NetCDFDatasetReader:
@@ -217,11 +219,101 @@ class EnvironmentalDataProvider:
     Backing store is an authentic NetCDF-4 file conforming to CF-1.8 metadata conventions.
     """
     def __init__(self, nc_path: Optional[str] = None):
-        self.nc_path = Path(nc_path) if nc_path else DEFAULT_NC_PATH
         self.coastline = AntarcticCoastlineMask()
         self._reader: Optional[NetCDFDatasetReader] = None
+        self.nc_path = self._select_store(nc_path)
         self._ensure_dataset_exists()
         self._reader = NetCDFDatasetReader(str(self.nc_path))
+        self._init_time_axis()
+
+    @staticmethod
+    def _select_store(nc_path: Optional[str]) -> Path:
+        """
+        Choose the backing store. POLARIS_DATA_MODE:
+          auto (default) - live store if it has been built, else the frozen snapshot
+          live           - live store; builds it once if missing (falls back to the snapshot
+                           on failure - the freshness gate then trips, which is the safe state)
+          snapshot       - always the frozen January-2026 reference store
+        """
+        if nc_path:
+            return Path(nc_path)
+        mode = os.environ.get("POLARIS_DATA_MODE", "auto").strip().lower()
+        if mode == "snapshot":
+            return DEFAULT_NC_PATH
+        if mode == "live" and not LIVE_NC_PATH.exists():
+            try:
+                from .live_fetch import build_live_store
+                build_live_store(LIVE_NC_PATH, LIVE_CACHE_DIR)
+            except Exception as exc:  # network down, NSIDC outage, ...
+                print(f"WARNING: live data fetch failed ({exc}); using frozen snapshot store.")
+                return DEFAULT_NC_PATH
+        return LIVE_NC_PATH if LIVE_NC_PATH.exists() else DEFAULT_NC_PATH
+
+    def _init_time_axis(self) -> None:
+        """Derive observed-vs-forecast layout of the time axis from the store attributes."""
+        ds = self._reader.ds
+        self.n_time = int(ds.sizes["time"])
+        self.mode = str(ds.attrs.get("data_mode", "snapshot"))
+        self.n_obs = int(ds.attrs.get("n_observed_days", self.n_time))
+        # live: hour_offset 0 == newest observed day; snapshot: legacy offset from day 0
+        self.base_idx = self.n_obs - 1 if self.mode == "live" else 0
+
+    def reload(self, nc_path: Optional[str] = None) -> None:
+        """Re-open the backing store (e.g. after a live refresh) without restarting the app."""
+        path = Path(nc_path) if nc_path else self._select_store(None)
+        new_reader = NetCDFDatasetReader(str(path))
+        # The old reader is left to the garbage collector: closing it could break a
+        # request that is still using it.
+        self.nc_path = path
+        self._reader = new_reader
+        self._init_time_axis()
+
+    def latest_observation_iso(self) -> Optional[str]:
+        """UTC ISO timestamp of the newest observed SIC day, or None if it cannot be determined."""
+        ds = self._reader.ds
+        attr = ds.attrs.get("latest_observation_iso")
+        if attr:
+            return str(attr)
+        try:
+            t = ds["time"].values[self.n_obs - 1]
+            if np.issubdtype(np.asarray(t).dtype, np.datetime64):
+                return str(np.datetime_as_string(t, unit="s")) + "Z"
+        except Exception:
+            pass
+        return None
+
+    def data_age_hours(self, now: Optional[Any] = None) -> Optional[float]:
+        from datetime import datetime, timezone
+        iso = self.latest_observation_iso()
+        if not iso:
+            return None
+        try:
+            obs = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        now = now or datetime.now(timezone.utc)
+        return max(0.0, (now - obs).total_seconds() / 3600.0)
+
+    def metadata(self) -> Dict[str, Any]:
+        """Provenance and freshness of the active store, for API responses."""
+        a = self._reader.ds.attrs
+        live = self.mode == "live"
+        age = self.data_age_hours()
+        return {
+            "mode": self.mode,
+            "store": self.nc_path.name,
+            "latest_observation_iso": self.latest_observation_iso(),
+            "data_age_hours": None if age is None else round(age, 1),
+            "observed_days": self.n_obs,
+            "forecast_wind_days": self.n_time - self.n_obs,
+            "fetched_at_utc": a.get("fetched_at_utc"),
+            "gap_filled_dates": [d for d in str(a.get("gap_filled_dates", "")).split(",") if d],
+            "sic_source": a.get("sic_source", "NOAA@NSIDC G02135 v4.0 daily GeoTIFFs (frozen Jan 2026 snapshot)"),
+            "wind_source": a.get("wind_source", "ECMWF ERA5 via Open-Meteo archive (frozen Jan 2026 snapshot)"),
+            "currents_source": a.get("currents_source", "climatological_proxy (analytic ACC/coastal formula; NOT CMEMS)"),
+            "sst_source": a.get("sst_source", "proxy: 2 m air temperature (NOT satellite SST)"),
+            "is_live": live,
+        }
 
     def _ensure_dataset_exists(self):
         """Ensures the real NSIDC/ERA5 Antarctic NetCDF dataset is present on disk."""
@@ -240,25 +332,24 @@ class EnvironmentalDataProvider:
 
     def get_sic(self, lat: float, lon: float, day_idx: int = 0) -> float:
         """Queries sea ice concentration [0.0 - 1.0] at (lat, lon, day)."""
-        return self._reader.sample_point("sic", lat, lon, time_idx=day_idx)
+        return self._reader.sample_point("sic", lat, lon, time_idx=min(day_idx, self.n_obs - 1))
+
+    def _wind_time_index(self, hour_offset: int) -> int:
+        return min(self.n_time - 1, self.base_idx + max(0, int(hour_offset)) // 24)
 
     def get_wind(self, lat: float, lon: float, hour_offset: int = 0) -> Tuple[float, float]:
         """Queries 10m wind velocity (u, v) in m/s at (lat, lon, hour)."""
-        day_idx = min(20, hour_offset // 24)
+        day_idx = self._wind_time_index(hour_offset)
         u10 = self._reader.sample_point("u10", lat, lon, time_idx=day_idx)
         v10 = self._reader.sample_point("v10", lat, lon, time_idx=day_idx)
         return u10, v10
 
     def get_ocean_current(self, lat: float, lon: float, hour_offset: int = 0) -> Tuple[float, float]:
         """Queries surface ocean current velocity (u, v) in m/s at (lat, lon, hour)."""
-        day_idx = min(20, hour_offset // 24)
+        day_idx = self._wind_time_index(hour_offset)
         u_c = self._reader.sample_point("u_curr", lat, lon, time_idx=day_idx)
         v_c = self._reader.sample_point("v_curr", lat, lon, time_idx=day_idx)
         return u_c, v_c
-
-    def get_sst(self, lat: float, lon: float, day_idx: int = 0) -> float:
-        """Queries Sea Surface Temperature (°C)."""
-        return self._reader.sample_point("sst", lat, lon, time_idx=day_idx)
 
     def get_live_weather(self, lat: float, lon: float, timeout_s: float = 3.5) -> Dict[str, Any]:
         """
@@ -275,7 +366,7 @@ class EnvironmentalDataProvider:
         now = time.time()
         if hasattr(self, "_live_weather_cache") and key in self._live_weather_cache:
             entry = self._live_weather_cache[key]
-            if now - entry["cached_at"] < 900:  # 15 minutes TTL
+            if now - entry["cached_at"] < 900:
                 return entry["data"]
 
         if not hasattr(self, "_live_weather_cache"):
@@ -291,7 +382,6 @@ class EnvironmentalDataProvider:
             f"&current=wave_height,wave_direction,wave_period"
         )
 
-        # Baseline fallback from local NetCDF
         u10, v10 = self.get_wind(lat, lon, hour_offset=0)
         w_speed_ms = math.sqrt(u10**2 + v10**2)
         w_dir = (math.degrees(math.atan2(-u10, -v10)) + 360.0) % 360.0
@@ -314,7 +404,6 @@ class EnvironmentalDataProvider:
             "wave_height_m": 1.5 if sic < 0.15 else 0.2
         }
 
-        # Attempt live API fetch
         try:
             req = urllib.request.Request(weather_url, headers={"User-Agent": "POLARIS-AI/1.0 (MoES/NCPOR Polar DSS)"})
             with urllib.request.urlopen(req, timeout=timeout_s) as resp:
@@ -336,8 +425,6 @@ class EnvironmentalDataProvider:
                     "sea_ice_concentration_pct": round(sic * 100.0, 1)
                 }
 
-
-                # Try marine wave query
                 try:
                     req_m = urllib.request.Request(marine_url, headers={"User-Agent": "POLARIS-AI/1.0"})
                     with urllib.request.urlopen(req_m, timeout=2.0) as resp_m:
@@ -356,6 +443,10 @@ class EnvironmentalDataProvider:
             self._live_weather_cache[key] = {"cached_at": now, "data": fallback_result}
             return fallback_result
 
+    def get_sst(self, lat: float, lon: float, day_idx: int = 0) -> float:
+        """Queries Sea Surface Temperature (°C)."""
+        return self._reader.sample_point("sst", lat, lon, time_idx=day_idx)
+
     def is_land(self, lat: float, lon: float) -> bool:
         """Checks if coordinate intersects Antarctic continental land or permanent ice shelves."""
         return self.coastline.is_land_or_shelf(lat, lon)
@@ -372,8 +463,13 @@ class EnvironmentalDataProvider:
         Channels: [SIC, SST, U10, V10, Current_Speed]
         """
         ds = self._reader.ds
-        max_t = min(num_days, len(ds["time"]))
-        sub_ds = ds.isel(time=slice(0, max_t))
+        if self.mode == "live":
+            # newest `num_days` OBSERVED days; trailing forecast-wind days have no SIC
+            n = min(num_days, self.n_obs)
+            sub_ds = ds.isel(time=slice(self.n_obs - n, self.n_obs))
+        else:
+            max_t = min(num_days, len(ds["time"]))
+            sub_ds = ds.isel(time=slice(0, max_t))
 
         # Vectorized bilinear interpolation across spatial grid
         interp_ds = sub_ds.interp(latitude=lats, longitude=lons, method="linear")
