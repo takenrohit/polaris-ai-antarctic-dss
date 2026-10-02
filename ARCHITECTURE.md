@@ -13,7 +13,7 @@
                            |          SATELLITE & METOCEAN FEEDS            |
                            |  - NOAA/NSIDC G02135 Daily GeoTIFFs (EPSG:3412)|
                            |  - ECMWF ERA5 Daily Winds (u10, v10) & SST     |
-                           |  - CMEMS Surface Ocean Current Vectors         |
+                           |  - Geostrophic Currents (Analytic ACC Proxy)   |
                            |  - BYU / USNIC Consolidated Iceberg CSVs       |
                            +-----------------------┬------------------------+
                                                    │

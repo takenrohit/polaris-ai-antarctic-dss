@@ -90,9 +90,9 @@ def get_ingestion_sources_status():
             "status": "ACTIVE"
         },
         "ocean_currents": {
-            "name": "Copernicus Marine (CMEMS) GLORYS12-Calibrated Proxy",
-            "resolution": "0.083° (~8 km)",
-            "status": "ACTIVE_PROXY"
+            "name": "Synthetic Geostrophic Proxy (not real CMEMS data — analytic ACC + coastal counter-current formula)",
+            "resolution": "0.25° analytic grid",
+            "status": "SYNTHETIC_PROXY"
         }
     }
 

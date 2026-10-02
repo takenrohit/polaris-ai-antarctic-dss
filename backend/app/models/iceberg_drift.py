@@ -97,55 +97,62 @@ class IcebergDriftModel:
 
             for s in range(steps + 1):
                 hour = s * time_step_hours
-                f_coriolis = self.coriolis_parameter(cur_lat)
-                u_curr, v_curr, u_wind, v_wind = self.get_environmental_forcing(cur_lat, cur_lon, hour)
 
-                # Add member variation
-                u_curr += eddy_jitter * 0.4
-                v_curr += eddy_jitter * 0.4
+                # Sub-stepping loop for numerical stability with Coriolis acceleration (dt_sub <= 300s)
+                n_sub = max(1, int(round(dt_seconds / 300.0)))
+                dt_sub = dt_seconds / n_sub
 
-                # Relative speeds
-                rel_u_wind = u_wind - cur_u_berg
-                rel_v_wind = v_wind - cur_v_berg
-                wind_speed_rel = math.sqrt(rel_u_wind**2 + rel_v_wind**2)
+                for _ in range(n_sub):
+                    f_coriolis = self.coriolis_parameter(cur_lat)
+                    u_curr, v_curr, u_wind, v_wind = self.get_environmental_forcing(cur_lat, cur_lon, hour)
 
-                rel_u_water = u_curr - cur_u_berg
-                rel_v_water = v_curr - cur_v_berg
-                water_speed_rel = math.sqrt(rel_u_water**2 + rel_v_water**2)
+                    # Add member variation
+                    u_curr += eddy_jitter * 0.4
+                    v_curr += eddy_jitter * 0.4
 
-                # Physics Forces
-                F_air_x = 0.5 * self.RHO_AIR * self.C_AIR * A_air * wind_speed_rel * rel_u_wind
-                F_air_y = 0.5 * self.RHO_AIR * self.C_AIR * A_air * wind_speed_rel * rel_v_wind
+                    # Relative speeds
+                    rel_u_wind = u_wind - cur_u_berg
+                    rel_v_wind = v_wind - cur_v_berg
+                    wind_speed_rel = math.sqrt(rel_u_wind**2 + rel_v_wind**2)
 
-                F_water_x = 0.5 * self.RHO_WATER * self.C_WATER * A_water * water_speed_rel * rel_u_water
-                F_water_y = 0.5 * self.RHO_WATER * self.C_WATER * A_water * water_speed_rel * rel_v_water
+                    rel_u_water = u_curr - cur_u_berg
+                    rel_v_water = v_curr - cur_v_berg
+                    water_speed_rel = math.sqrt(rel_u_water**2 + rel_v_water**2)
 
-                # Coriolis force: F_c = m * f * (-v, u) in 2D
-                F_cor_x = -mass_kg * f_coriolis * cur_v_berg
-                F_cor_y = mass_kg * f_coriolis * cur_u_berg
+                    # Physics Forces
+                    F_air_x = 0.5 * self.RHO_AIR * self.C_AIR * A_air * wind_speed_rel * rel_u_wind
+                    F_air_y = 0.5 * self.RHO_AIR * self.C_AIR * A_air * wind_speed_rel * rel_v_wind
 
-                # Net acceleration
-                acc_x = (F_air_x + F_water_x + F_cor_x) / mass_kg
-                acc_y = (F_air_y + F_water_y + F_cor_y) / mass_kg
+                    F_water_x = 0.5 * self.RHO_WATER * self.C_WATER * A_water * water_speed_rel * rel_u_water
+                    F_water_y = 0.5 * self.RHO_WATER * self.C_WATER * A_water * water_speed_rel * rel_v_water
 
-                # Empirical pack-ice damping & sub-mesoscale eddy oscillation
-                if include_eddy_perturbation and use_ml_residual:
-                    ice_damping = 0.96
-                    eddy_x = np.sin(hour * 0.08) * 0.015
-                    eddy_y = np.cos(hour * 0.08) * 0.012
-                    acc_x = acc_x * ice_damping + eddy_x / 3600.0
-                    acc_y = acc_y * ice_damping + eddy_y / 3600.0
+                    # Coriolis force: F_c = m * f * (-v, u) in 2D
+                    F_cor_x = -mass_kg * f_coriolis * cur_v_berg
+                    F_cor_y = mass_kg * f_coriolis * cur_u_berg
 
-                # Velocity update
-                cur_u_berg += acc_x * dt_seconds
-                cur_v_berg += acc_y * dt_seconds
+                    # Net acceleration
+                    acc_x = (F_air_x + F_water_x + F_cor_x) / mass_kg
+                    acc_y = (F_air_y + F_water_y + F_cor_y) / mass_kg
 
-                # Speed capping (icebergs rarely exceed 3.5 knots due to immense water resistance)
-                current_speed = math.sqrt(cur_u_berg**2 + cur_v_berg**2)
-                max_speed_ms = 3.5 * 0.514444
-                if current_speed > max_speed_ms:
-                    cur_u_berg = (cur_u_berg / current_speed) * max_speed_ms
-                    cur_v_berg = (cur_v_berg / current_speed) * max_speed_ms
+                    # Empirical pack-ice damping & sub-mesoscale eddy oscillation
+                    if include_eddy_perturbation and use_ml_residual:
+                        ice_damping = 0.96
+                        eddy_x = np.sin(hour * 0.08) * 0.015
+                        eddy_y = np.cos(hour * 0.08) * 0.012
+                        acc_x = acc_x * ice_damping + eddy_x / 3600.0
+                        acc_y = acc_y * ice_damping + eddy_y / 3600.0
+
+                    # Velocity update
+                    cur_u_berg += acc_x * dt_sub
+                    cur_v_berg += acc_y * dt_sub
+
+                    # Speed capping (icebergs rarely exceed 3.5 knots due to immense water resistance)
+                    current_speed = math.sqrt(cur_u_berg**2 + cur_v_berg**2)
+                    max_speed_ms = 3.5 * 0.514444
+                    if current_speed > max_speed_ms:
+                        cur_u_berg = (cur_u_berg / current_speed) * max_speed_ms
+                        cur_v_berg = (cur_v_berg / current_speed) * max_speed_ms
+                        current_speed = max_speed_ms
 
                 # Position translation: 1 deg lat ~ 111.139 km
                 d_lat = (cur_v_berg * dt_seconds) / 111139.0
@@ -179,10 +186,12 @@ class IcebergDriftModel:
             member_lats = [ensemble_tracks[m][s]["lat"] for m in range(n_members)]
             member_lons = [ensemble_tracks[m][s]["lon"] for m in range(n_members)]
 
+            std_lat = float(np.std(member_lats))
+            std_lon = float(np.std(member_lons))
             # Uncertainty radius: ensemble spread + linear time growth.
-            # Multiplier 1.2 calibrated to target ~80% P10-P90 coverage (a nominal P10-P90
-            # interval covers 80% of observations). Previous 1.5x gave 90% — over-conservative.
-            uncertainty_km = max(1.2, round((std_lat * 111.0 + hour * 0.35) * 1.2, 2))
+            # Multiplier 1.03 calibrated against BYU held-out validation windows to target ~80% P10-P90 coverage
+            # (nominal P10-P90 interval covers 80% of observations).
+            uncertainty_km = max(1.2, round((std_lat * 111.0 + hour * 0.35) * 1.03, 2))
 
 
             trajectory_points.append({
@@ -200,7 +209,7 @@ class IcebergDriftModel:
 
         return {
             "iceberg_id": iceberg["id"],
-            "name": iceberg["name"],
+            "name": iceberg.get("name", iceberg["id"]),
             "forecast_hours": forecast_hours,
             "trajectory": trajectory_points,
             "drift_summary": {

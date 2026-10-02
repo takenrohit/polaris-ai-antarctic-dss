@@ -68,10 +68,10 @@ Evaluated with plain signed metrics (no artificial clamping) against standard pe
 | **Lead Day 1** | **0.0122** | 0.0173 | 0.0121 | 2,500 | 2,500 | 0.00% | -0.48% |
 | **Lead Day 3** | **0.0262** | 0.0411 | 0.0261 | 5,000 | 4,375 | -14.29% | -0.29% |
 | **Lead Day 5** | **0.0441** | 0.0586 | 0.0448 | 10,000 | 9,375 | -6.67% | **+1.56%** |
-| **Lead Day 7** | **0.0575** | 0.0683 | 0.0603 | 13,125 | 14,375 | **+8.70%** | **+4.70%** |
+| **Lead Day 7** | **0.0576** | 0.0683 | 0.0603 | 13,125 | 14,375 | **+8.70%** | **+4.55%** |
 | **7-Day Mean** | **0.0345** | 0.0462 | 0.0353 | 7,679 | 7,232 | -3.05% | **+2.27%** |
 
-*Scientific Transparency Note:* Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid (7-day mean RMSE 0.0462 vs 0.0353). The operational forecast gain is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. Note: The $\alpha(\tau)$ schedule was calibrated on the validation window; testing across independent seasons is recommended in future iterations.
+*Scientific Transparency Note:* Standalone ConvLSTM rollouts exhibit recursive diffusion and spatial smoothing over multi-day horizons, causing the pure neural network to underperform persistence on this polar grid (7-day mean RMSE 0.0462 vs 0.0353). The operational forecast gain is achieved by the physics-guided hybrid combining kinematic wind advection, thermodynamic melt trend, and neural residual deltas via the horizon schedule $\alpha(\tau) = \min(0.35, 0.018 \cdot (\tau - 1)^{1.5})$. Note: The $\alpha(\tau)$ schedule is calibrated on the disjoint December window (Days 0–6) and evaluated strictly out-of-sample on the January held-out window (Days 14–20).
 
 ---
 

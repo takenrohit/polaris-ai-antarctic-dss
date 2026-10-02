@@ -14,7 +14,7 @@ POLARIS-AI integrates multi-source satellite Earth observation, atmospheric rean
 |---|---|---|---|---|---|---|
 | **NOAA/NSIDC G02135 v4.0** | Sea-Ice Concentration (SIC) | Fraction [0.0, 1.0] | **Real Satellite Observations** | DMSP SSMIS, AMSR2 | 25 km polar stereographic (EPSG:3412) | Daily CDR |
 | **ECMWF ERA5 Reanalysis** | 10-meter Wind Vectors ($u_{10}, v_{10}$) | $\text{m/s}$ | **Real Atmospheric Reanalysis** | Copernicus ERA5 / Open-Meteo | 0.25° grid (~25 km) | Daily & hourly forcing |
-| **Copernicus Marine (CMEMS)** | Surface Ocean Current ($u_{curr}, v_{curr}$) | $\text{m/s}$ | **CMEMS GLORYS12-Calibrated Proxy** | Calibrated geostrophic + Ekman drift | 0.25° polar grid | Dynamic hydrodynamic field |
+| **Copernicus Marine (CMEMS)** | Surface Ocean Current ($u_{curr}, v_{curr}$) | $\text{m/s}$ | **Synthetic Geostrophic Proxy (not real CMEMS data)** | Analytic ACC + coastal counter-current formula | 0.25° polar grid | Fixed climatological pattern |
 | **NOAA OISST / ERA5** | Sea Surface Temperature (SST) | °C | **Polar Climatological Thermal Proxy** | Satellite IR/microwave assimilation | 0.25° grid | Daily surface boundary |
 | **BYU / USNIC Database** | Tabular Iceberg Positions & Geometry | Lat/Lon, km, GT | **Real Satellite Tracking Archive** | MetOp ASCAT, Sentinel-1 SAR, Envisat | Individual iceberg tracks | Multi-day satellite passes |
 | **Copernicus Sentinel-1 / AMSR2** | High-Res SAR & Microwave Ingestion | Sigma-0 backscatter, SIC | **Operational Satellite Ingestion Stubs** | Sentinel-1 C-SAR & GCOM-W1 AMSR2 | 50 m to 10 km | Near-Real-Time (NRT) stubs |
@@ -41,10 +41,11 @@ POLARIS-AI integrates multi-source satellite Earth observation, atmospheric rean
 - Extracted from ECMWF ERA5 reanalysis via the Copernicus / Open-Meteo climate API across the Southern Ocean and Antarctic sectors.
 - Real 10m horizontal wind fields drive aerodynamic form drag ($\vec{F}_{air}$) in the 2D Lagrangian iceberg drift engine and wave resistance corrections in vessel routing.
 
-### Surface Ocean Currents ($u_{curr}, v_{curr}$) — CMEMS GLORYS12-Calibrated Proxy
-- Calibrated against Copernicus Marine (CMEMS) GLORYS12 reanalysis and geostrophic surface velocities.
-- Formally models the eastward Antarctic Circumpolar Current (ACC) core ($+0.15$ to $+0.35\text{ m/s}$ between 50°S and 60°S) and the westward coastal Antarctic Counter-Current / East Wind Drift ($-0.08$ to $-0.15\text{ m/s}$ along the continental shelf margin).
-- Explicitly documented as a calibrated hydrodynamic proxy when full real-time Mercator OPeNDAP streams are unreachable or throttled.
+### Surface Ocean Currents ($u_{curr}, v_{curr}$) — Synthetic Geostrophic Proxy
+- **Not real CMEMS data.** The ocean current field is a synthetic analytic formula that models the Antarctic Circumpolar Current (ACC) as an eastward flow ($+0.15$ to $+0.35\text{ m/s}$ between 50°S and 60°S) and the coastal East Wind Drift as a westward counter-current ($-0.08$ to $-0.15\text{ m/s}$ along the shelf margin).
+- Calibrated loosely against the spatial structure of the Copernicus Marine GLORYS12 reanalysis, but not derived from or validated against real CMEMS OPeNDAP streams.
+- The near-zero values returned at specific berg locations (seen in ablation studies) reflect the fact that this synthetic pattern has low amplitude at those coordinates, not real ACC forcing.
+- **For operational use**, this field should be replaced by real-time Copernicus Marine GLORYS12 reanalysis at 0.083° resolution via the CMEMS REST API.
 
 ### Sea Surface Temperature (SST) — Thermal Proxy
 - Calibrated against NOAA OISST v2.1 and ERA5 polar surface temperatures, declining monotonically from Subantarctic waters (+4°C to +8°C at 50°S) to sea water freezing point ($-1.8^\circ\text{C}$) at the consolidated pack ice boundary.

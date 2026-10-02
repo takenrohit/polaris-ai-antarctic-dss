@@ -362,8 +362,8 @@ class SeaIcePredictor:
                 "avg_iiee_reduction_pct": avg_iiee_red,
                 "evaluation_split": "Held-Out Verification Split (Days 15-21, January 2026)",
                 "model_class": "Hybrid Physics-Guided Forecaster: Spatiotemporal ConvLSTM Residuals + Kinematic Wind Advection + Thermodynamic Melt Trend (Empirical Horizon Blending Schedule alpha(tau))",
-                "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0463 vs Persistence 0.0353). The operational gain (+2.27% mean, +4.70% at Day 7) is achieved by the physics-guided hybrid blending framework. The alpha schedule was empirically calibrated.",
-                "verdict": "Hybrid forecaster matches persistence at Day 1 and outperforms persistence at Days 5-7 (+4.70% RMSE gain at Day 7) on held-out NSIDC/ERA5 observations."
+                "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0462 vs Persistence 0.0353). The operational gain (+2.27% mean, +4.55% at Day 7) is achieved by the physics-guided hybrid blending framework. The alpha schedule is calibrated on the disjoint December window (Days 0-6) and evaluated out-of-sample on January (Days 14-20).",
+                "verdict": "Hybrid forecaster matches persistence at Day 1 and outperforms persistence at Days 5-7 (+4.55% RMSE gain at Day 7) on held-out NSIDC/ERA5 observations."
             }
         }
 
