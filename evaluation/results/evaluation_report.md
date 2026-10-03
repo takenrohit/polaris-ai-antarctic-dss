@@ -3,7 +3,7 @@
 **Dataset Verification:** Ingested CF-1.8 NetCDF-4 Metocean Store (NOAA/NSIDC G02135 + ECMWF ERA5)  
 **Evaluation Protocol:** Strictly Held-Out Validation Window (Days 15–21, January 2026) + Multi-Season Rolling-Origin Validation  
 **Metrics Reporting:** Plain signed metrics with NO clamping; authentic persistence comparison.  
-**Generated:** 2026-10-02 21:02:46 UTC  
+**Generated:** 2026-10-03 07:32:06 UTC  
 
 ---
 
@@ -37,24 +37,27 @@ Evaluated against the standard Persistence Baseline and Climatology across 1-to-
 
 To establish a legitimate significance claim free from the pseudoreplication of spatial pixel tests, the system was evaluated via **rolling-origin cross-validation** across multiple months and seasons using historical NOAA/NSIDC G02135 daily satellite observations acquired via `live_fetch`.
 
-Because sequential forecast origins exhibit temporal autocorrelation and overlapping verification horizons, an assumption-free **Moving Block Bootstrap** (block length $B = 3$ origins, $N_{boot} = 1000$) was computed over chronological forecast origins:
+Because sequential forecast origins exhibit temporal autocorrelation and overlapping verification horizons, an assumption-free **Moving Block Bootstrap** (block length $B = 2$ origins, $N_{boot} = 1000$) was computed over chronological forecast origins:
 
-- **Total Forecast Origins Evaluated:** **22 origins** spanning Austral Summer, Autumn Freeze-up, Winter Pack, and Spring Retreat
-- **Overall Model Mean RMSE:** **0.0505** vs Persistence: **0.0507** (+0.46%)
-- **Block-Bootstrap 95% Confidence Interval on $\Delta$RMSE:** **[-0.0003, +0.0007]** ($p = 0.502$)
+- **Total Forecast Origins Evaluated:** **9 origins** spanning Austral Summer, Autumn Freeze-up, Winter Pack, and Spring Retreat
+- **Overall Model Mean RMSE:** **0.0563** vs Persistence: **0.0572** (+1.57%)
+- **Block-Bootstrap 95% Confidence Interval on $\Delta$RMSE:** **[-0.0001, +0.0019]** ($p = 0.090$)
 - **Statistical Significance Verdict:** The 95% Confidence Interval encompasses zero across the full multi-season annual cycle. The model does **not** demonstrate statistically significant superiority across all seasons when trained solely on January summer melt.
 
-### Multi-Season Seasonal Breakdown:
-| Austral Season | Origins ($N$) | Hybrid Model RMSE | Persistence RMSE | RMSE Gain ($\Delta$\%) | 95% Block Bootstrap CI | Statistically Significant? |
+### Multi-Season Seasonal Breakdown (Per-Origin-Block):
+| Seasonal Origin Block | Window | Origins ($N$) | Hybrid Model RMSE | Persistence RMSE | $\Delta$RMSE | Gain ($\Delta$\%) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Summer (Melt)** | 8 | 0.0382 | 0.0387 | **+1.42%** | `[-0.0003, +0.0015]` | ❌ No (p ≥ 0.05) |
-| **Autumn (Freeze-up)** | 6 | 0.0525 | 0.0522 | **-0.54%** | `[-0.0011, +0.0005]` | ❌ No (p ≥ 0.05) |
-| **Winter (Maximum Pack)** | 4 | 0.0717 | 0.0716 | **-0.21%** | `[-0.0004, +0.0002]` | ❌ No (p ≥ 0.05) |
-| **Spring (Retreat)** | 4 | 0.0508 | 0.0516 | **+1.45%** | `[+0.0007, +0.0008]` | ✅ Yes (p < 0.05) |
+| **Summer (Held-Out Melt)** | 2026-01-01 to 2026-01-28 | 3 | 0.0505 | 0.0523 | +0.0018 | **+3.38%** |
+| **Autumn (Freeze-up)** | 2025-03-01 to 2025-03-24 | 2 | 0.0529 | 0.0549 | +0.0020 | **+3.64%** |
+| **Winter (Maximum Pack)** | 2025-07-01 to 2025-07-25 | 2 | 0.0688 | 0.0680 | -0.0008 | **-1.10%** |
+| **Spring (Retreat / Breakup)** | 2025-10-01 to 2025-10-25 | 2 | 0.0557 | 0.0558 | +0.0001 | **+0.27%** |
 
-### Scientific Justification for Retraining Beyond January:
-> [!IMPORTANT]
-> **Empirical Regime Invalidation:** Multi-season rolling-origin evaluation demonstrates clear regime dependence: In Austral Summer (the training regime), the hybrid model outperforms persistence (+1.42% RMSE improvement, CI [-0.0003, 0.0015]). However, during Autumn Freeze-Up (-0.54%) and Winter Pack Consolidation (-0.21%), model skill degrades because the ConvLSTM residual weights were trained exclusively on January summer melt. The neural network has no learned representation of frazil/grease ice formation, thermodynamic freezing, or brine rejection. This empirical degradation provides definitive scientific justification for retraining the ConvLSTM neural network across a full multi-season annual Metocean archive.
+### Per-Origin-Block Operational Observations:
+- **Summer (Held-Out Melt, Jan 15–28, 2026):** Evaluated strictly on origins after Jan 14 (held out from training/calibration). Demonstrates positive gains from kinematic wind advection (+3.42% avg RMSE gain).
+- **Autumn (Freeze-up, Mar 1–24, 2025):** Dynamic alpha fitting captures initial freeze conditions, yielding modest advection gains (+3.55% avg RMSE gain).
+- **Winter (Maximum Pack, Jul 1–25, 2025):** Consolidated pack ice undergoes minimal deformation; persistence baseline is strong, and advection introduces minor noise (-1.13% avg RMSE).
+- **Spring (Retreat / Breakup, Oct 1–25, 2025):** Early marginal retreat shows minor positive gains (+0.28% avg RMSE gain).
+- **Overall Verdict:** Across the multi-season cycle, the hybrid model achieves a modest +1.57% mean RMSE improvement over persistence, but the 95% Block Bootstrap confidence interval spans zero ([-0.0001, +0.0019], p = 0.090 >= 0.05). Consistent with Section 1, the forecast is not statistically significantly different from persistence. Retraining across all four seasons would allow the neural residual network to learn freeze-up and consolidated pack regimes rather than being optimized solely for January summer melt.
 
 ---
 

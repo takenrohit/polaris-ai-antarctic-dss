@@ -73,10 +73,10 @@
 - The `POST /api/forecast/refresh` endpoint is token-guarded and disabled by default; do not expose it publicly without TLS and a strong token.
 
 ### 7. Statistical Significance of Sea-Ice Forecast Skill
-- Evaluated via paired two-tailed Student t-tests between the hybrid physics-guided model and the persistence baseline across the 7-day evaluation horizon:
-  - **Lead-horizon RMSE test (N=7 lead days):** $t = -1.959$ to $-2.657$, $p = 0.038$ to $0.098$.
-  - **Spatial grid-cell absolute error test ($N = 1,129$ ice-active ocean pixels):** $t = -3.878$, $p = 1.12 \times 10^{-4}$ ($p < 0.001$).
-- **Operational Interpretation:** The hybrid forecaster demonstrates a statistically significant error reduction spatially and at extended lead times (Days 5–7, reaching +4.55% RMSE improvement at Day 7). At early lead times (Days 1–3), performance is statistically comparable to persistence ($p \ge 0.05$). Navigators should treat early-lead forecasts as persistence-equivalent and rely on the hybrid primarily for extended multi-day trend advection.
+- Evaluated via paired two-tailed Student t-test between the hybrid physics-guided model and the persistence baseline across the 7-day evaluation horizon:
+  - **Lead-horizon RMSE test (N=7 lead days):** $t = -1.9594, p = 0.0978$ ($p \ge 0.05$). The single held-out 7-day forecast is **not statistically significantly different from persistence**.
+  - **Spatial grid-cell testing:** Strictly excluded from operational significance claims due to strong spatial autocorrelation (pseudoreplication) across neighboring pixels.
+- **Operational Interpretation:** The hybrid forecaster achieves a modest average RMSE reduction (+2.27%) overall, driven primarily by physical wind advection at extended lead horizons (Days 5–7, reaching +4.55% at Day 7). At early lead horizons (Days 1–3), differences from persistence are negligible ($p \ge 0.05$). Navigators must treat short-range predictions as persistence-equivalent and exercise standard mariner discretion.
 
 ### 8. Metocean Proxies (Currents & SST)
 - **Surface Ocean Currents ($u_{curr}, v_{curr}$):** Driven by an idealized analytic Antarctic Circumpolar Current (ACC) and Antarctic Coastal Current formula ($0.05$–$0.25$ m/s), **not authenticated CMEMS GLORYS12 or in-situ ADCP drifter observations**.

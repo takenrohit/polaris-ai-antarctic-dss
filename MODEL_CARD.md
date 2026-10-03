@@ -87,14 +87,14 @@ To assess whether the hybrid physics-guided forecaster provides genuine predicti
 
 | Hypothesis Test Scope | Sample Size ($N$) | Test Statistic ($t$) | $p$-value | Statistical Significance ($\alpha = 0.05$) |
 |:---|:---:|:---:|:---:|:---:|
-| **Daily Lead-Horizon RMSE** | 7 days | $-2.6565$ | **0.0377** | **Statistically Significant ($p < 0.05$)** |
-| **Active Ice Spatial Pixels (Day 7)** | 1,129 cells | $-3.8776$ | **$1.12 \times 10^{-4}$** | **Highly Significant ($p < 0.001$)** |
+| **Daily Lead-Horizon RMSE** | 7 days | $-1.9594$ | **0.0978** | **Not Statistically Significant ($p \ge 0.05$)** |
+
+> **Note on Spatial Pixel Testing:** Tests on individual grid cells are **strictly excluded from verdicts** due to pseudoreplication caused by strong spatial autocorrelation across neighboring cells.
 
 ### Findings & Caveats
-1. At extended lead horizons (Days 5–7), physical wind advection coupled with thermodynamic melt trends yields statistically significant error reductions over freezing day-0 persistence forward (+4.55% RMSE gain at Day 7).
-2. At early horizons (Days 1–3), differences between the hybrid model and persistence are negligible ($p > 0.05$), confirming that freezing Day 0 is an optimal short-range predictor.
-3. The standalone recursive ConvLSTM exhibits spatial smoothing and underperforms persistence (mean RMSE 0.0462 vs 0.0353); the operational gain is achieved exclusively through the hybrid blending architecture.
-
+1. Across the single 7-day held-out evaluation window (Days 15–21, January 2026), the hybrid physics-guided forecaster achieves a modest average RMSE reduction (+2.27%), but the difference from the persistence baseline is **not statistically significant** ($t = -1.9594, p = 0.0978 \ge 0.05$).
+2. While kinematic advection provides directional gains at extended horizons (Days 5–7, reaching +4.55% at Day 7), short-range horizons (Days 1–3) are persistence-dominated.
+3. The standalone recursive ConvLSTM exhibits spatial smoothing and underperforms persistence (mean RMSE 0.0462 vs 0.0353); any operational gain requires the hybrid blending architecture.
 ---
 
 ## 4c. Data Proxies and Seasonal Scope Disclosures
