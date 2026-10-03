@@ -94,7 +94,7 @@ To assess whether the hybrid physics-guided forecaster provides genuine predicti
 ### Findings & Caveats
 1. Across the single 7-day held-out evaluation window (Days 15–21, January 2026), the hybrid physics-guided forecaster achieves a modest average RMSE reduction (+2.27%), but the difference from the persistence baseline is **not statistically significant** ($t = -1.9594, p = 0.0978 \ge 0.05$).
 2. While kinematic advection provides directional gains at extended horizons (Days 5–7, reaching +4.55% at Day 7), short-range horizons (Days 1–3) are persistence-dominated.
-3. The standalone recursive ConvLSTM exhibits spatial smoothing and underperforms persistence (mean RMSE 0.0462 vs 0.0353); any operational gain requires the hybrid blending architecture.
+3. The standalone recursive ConvLSTM exhibits spatial smoothing and underperforms persistence (mean RMSE 0.0462 vs 0.0353); any operational gain requires the hybrid blending architecture. Furthermore, because the neural residual weighting is small ($NN\_WEIGHT = 0.02, 2\%$), the hybrid model's skill and RMSE improvements are predominantly driven by physics-guided kinematic wind advection and antecedent thermodynamic melt trends rather than neural regression.
 ---
 
 ## 4c. Data Proxies and Seasonal Scope Disclosures

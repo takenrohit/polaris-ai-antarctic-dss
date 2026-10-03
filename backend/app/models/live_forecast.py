@@ -26,9 +26,9 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 from scipy.ndimage import map_coordinates
 
-ALPHA_CAPS = (0.20, 0.25, 0.30, 0.35, 0.40)
-ALPHA_BASES = (0.010, 0.014, 0.018, 0.022, 0.028)
-ALPHA_EXPS = (1.0, 1.2, 1.5, 1.8, 2.0)
+ALPHA_CAPS = (0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.60)
+ALPHA_BASES = (0.002, 0.005, 0.008, 0.012, 0.016, 0.020, 0.025, 0.030, 0.035, 0.045, 0.060)
+ALPHA_EXPS = (0.5, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.5)
 DEFAULT_ALPHA = (0.35, 0.018, 1.5)
 NN_WEIGHT = 0.02
 MIN_WINDOW_DAYS = 14        # 14-day window: calibration + melt trend (matches the hindcast)
@@ -66,29 +66,50 @@ def _blend(day0: np.ndarray, melt_field: np.ndarray, dlat: np.ndarray, dlon: np.
 def fit_alpha_params(window: np.ndarray, lat_grid: np.ndarray, lon_grid: np.ndarray
                      ) -> Tuple[Tuple[float, float, float], float]:
     """
-    Grid-search (cap, base, exp) on the rolling window's calibration slice.
+    Grid-search (cap, base, exp) across widened parameter bounds over multiple baseline days.
 
-    ``window`` is (T, 5, H, W) with T >= 14: baseline = day 6, targets = days 7..13,
-    melt trend from days 0..6. Returns (params, summed_rmse_over_7_leads).
+    ``window`` is (T, 5, H, W) with T >= 14: fits over multiple antecedent baseline days
+    (e.g. days 4, 5, 6) projecting 7-day targets against ground truth within the 14-day history.
+    Precomputes advected fields to achieve fast evaluation across the widened search grid.
+    Returns (params, summed_rmse_over_targets).
     """
     if window.shape[0] < 14:
         return DEFAULT_ALPHA, float("nan")
     d_lat, d_lon = _grid_steps(lat_grid, lon_grid)
-    day0 = window[6, _SIC]
-    truth = window[7:14, _SIC]
-    melt = (window[6, _SIC] - window[0, _SIC]) / 6.0
-    dlat, dlon = _drift_per_day(lat_grid, window[6, _U10], window[6, _V10])
+    H, W = window.shape[2], window.shape[3]
+    yy, xx = np.mgrid[0:H, 0:W]
+
+    # Precompute advected & thermo states across multiple baseline days (days 4, 5, 6)
+    # to eliminate single-day noise and stabilize horizon parameter calibration.
+    precomputed = []
+    baseline_days = (4, 5, 6)
+    for b in baseline_days:
+        day0 = window[b, _SIC]
+        truth = window[b + 1 : b + 8, _SIC]
+        melt = (window[b, _SIC] - window[0, _SIC]) / float(b)
+        dlat, dlon = _drift_per_day(lat_grid, window[b, _U10], window[b, _V10])
+        leads_data = []
+        for t in range(7):
+            tau = t + 1
+            sy = (dlat * tau) / (d_lat + 1e-9)
+            sx = (dlon * tau) / (d_lon + 1e-9)
+            advected = map_coordinates(day0, np.array([yy - sy, xx - sx]), order=1, mode="nearest")
+            thermo = np.clip(advected + melt * tau * 0.7, 0.0, 1.0)
+            leads_data.append((day0, thermo, truth[t]))
+        precomputed.append(leads_data)
 
     best, best_params = float("inf"), DEFAULT_ALPHA
     for cap in ALPHA_CAPS:
         for base in ALPHA_BASES:
             for exp in ALPHA_EXPS:
                 total = 0.0
-                for t in range(7):
-                    tau = t + 1
-                    alpha = min(cap, base * max(0.0, (tau - 1) ** exp))
-                    pred = _blend(day0, melt, dlat, dlon, tau, alpha, d_lat, d_lon)
-                    total += float(np.sqrt(np.mean((pred - truth[t]) ** 2)))
+                for b_idx in range(len(precomputed)):
+                    for t in range(7):
+                        tau = t + 1
+                        alpha = min(cap, base * max(0.0, (tau - 1) ** exp))
+                        day0, thermo, tr = precomputed[b_idx][t]
+                        pred = (1.0 - alpha) * day0 + alpha * thermo
+                        total += float(np.sqrt(np.mean((pred - tr) ** 2)))
                 if total < best:
                     best, best_params = total, (cap, base, exp)
     return best_params, best

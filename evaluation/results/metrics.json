@@ -141,48 +141,47 @@
     ]
   },
   "rolling_origin_evaluation": {
-    "evaluation_protocol": "Multi-Season Rolling-Origin Validation using authentic operational forecaster (hybrid_forecast_from_latest + ConvLSTM neural residuals + ERA5 wind advection)",
-    "total_origins_evaluated": 9,
+    "evaluation_protocol": "Multi-Season Rolling-Origin Validation (21 daily origins across 4 contiguous seasonal blocks, whole-season block bootstrap)",
+    "total_origins_evaluated": 21,
     "seasonal_blocks_count": 4,
-    "overall_avg_model_rmse": 0.0563,
-    "overall_avg_persistence_rmse": 0.0572,
+    "nn_used": true,
+    "nn_weight": 0.02,
+    "operational_finding": "Neural residual weighting is 0.02 (2%); hybrid forecaster gains are predominantly driven by physics-guided kinematic wind advection.",
+    "overall_avg_model_rmse": 0.0561,
+    "overall_avg_persistence_rmse": 0.0569,
     "overall_mean_rmse_difference": 0.0009,
-    "overall_improvement_pct": 1.57,
+    "overall_improvement_pct": 1.56,
     "block_bootstrap": {
-      "sample_size": 9,
-      "block_size": 2,
+      "resampling_unit": "whole_season_block",
+      "season_blocks_count": 4,
       "n_bootstrap": 1000,
       "point_estimate": 0.0009,
       "ci_95_lower": -0.0001,
       "ci_95_upper": 0.0019,
       "is_significant_p05": false,
-      "p_value": 0.09
+      "p_value": 0.114
     },
     "seasonal_breakdown": {
       "Summer (Held-Out Melt)": {
-        "origin_count": 3,
+        "origin_count": 7,
         "block_window": "2026-01-01 to 2026-01-28",
-        "avg_model_rmse": 0.0505,
-        "avg_persistence_rmse": 0.0523,
-        "avg_rmse_difference": 0.0018,
-        "improvement_pct": 3.38,
-        "ci_95": [
-          0.0016,
-          0.0023
-        ],
-        "is_significant_p05": true,
-        "p_value": 0.0,
+        "avg_model_rmse": 0.0513,
+        "avg_persistence_rmse": 0.0527,
+        "avg_rmse_difference": 0.0014,
+        "improvement_pct": 2.71,
+        "significance_assessment": "omitted_small_sample_size (N < 8; individual seasonal blocks underpowered)",
         "origins": [
           {
             "origin_date": "2026-01-15",
-            "mean_model_rmse": 0.0483,
+            "nn_used": true,
+            "mean_model_rmse": 0.0481,
             "mean_persistence_rmse": 0.0498,
-            "mean_rmse_difference": 0.0016,
-            "improvement_pct": 3.12,
+            "mean_rmse_difference": 0.0018,
+            "improvement_pct": 3.56,
             "alpha_params": [
-              0.25,
-              0.028,
-              2.0
+              0.3,
+              0.06,
+              2.5
             ],
             "lead_metrics": [
               {
@@ -194,59 +193,190 @@
               },
               {
                 "lead_day": 2,
-                "model_rmse": 0.0306,
+                "model_rmse": 0.0305,
                 "persistence_rmse": 0.0308,
-                "rmse_difference": 0.0002,
-                "improvement_pct": 0.53
+                "rmse_difference": 0.0003,
+                "improvement_pct": 0.89
               },
               {
                 "lead_day": 3,
-                "model_rmse": 0.0373,
+                "model_rmse": 0.0369,
                 "persistence_rmse": 0.0378,
-                "rmse_difference": 0.0005,
-                "improvement_pct": 1.35
+                "rmse_difference": 0.0009,
+                "improvement_pct": 2.3
               },
               {
                 "lead_day": 4,
-                "model_rmse": 0.0507,
+                "model_rmse": 0.0506,
                 "persistence_rmse": 0.0524,
-                "rmse_difference": 0.0017,
-                "improvement_pct": 3.19
+                "rmse_difference": 0.0019,
+                "improvement_pct": 3.54
               },
               {
                 "lead_day": 5,
-                "model_rmse": 0.0581,
+                "model_rmse": 0.0578,
                 "persistence_rmse": 0.0607,
-                "rmse_difference": 0.0026,
-                "improvement_pct": 4.25
+                "rmse_difference": 0.0029,
+                "improvement_pct": 4.76
               },
               {
                 "lead_day": 6,
-                "model_rmse": 0.0652,
+                "model_rmse": 0.0649,
                 "persistence_rmse": 0.0683,
-                "rmse_difference": 0.0031,
-                "improvement_pct": 4.47
+                "rmse_difference": 0.0034,
+                "improvement_pct": 4.98
               },
               {
                 "lead_day": 7,
-                "model_rmse": 0.0728,
+                "model_rmse": 0.0725,
                 "persistence_rmse": 0.0756,
-                "rmse_difference": 0.0028,
-                "improvement_pct": 3.74
+                "rmse_difference": 0.0031,
+                "improvement_pct": 4.09
+              }
+            ],
+            "season": "Summer (Held-Out Melt)"
+          },
+          {
+            "origin_date": "2026-01-16",
+            "nn_used": true,
+            "mean_model_rmse": 0.0515,
+            "mean_persistence_rmse": 0.0528,
+            "mean_rmse_difference": 0.0013,
+            "improvement_pct": 2.54,
+            "alpha_params": [
+              0.2,
+              0.06,
+              1.6
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0228,
+                "persistence_rmse": 0.0228,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.12
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0318,
+                "persistence_rmse": 0.0319,
+                "rmse_difference": 0.0002,
+                "improvement_pct": 0.56
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0452,
+                "persistence_rmse": 0.0461,
+                "rmse_difference": 0.0009,
+                "improvement_pct": 1.98
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0545,
+                "persistence_rmse": 0.0561,
+                "rmse_difference": 0.0016,
+                "improvement_pct": 2.91
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0623,
+                "persistence_rmse": 0.0643,
+                "rmse_difference": 0.002,
+                "improvement_pct": 3.17
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0691,
+                "persistence_rmse": 0.071,
+                "rmse_difference": 0.0019,
+                "improvement_pct": 2.7
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.0745,
+                "persistence_rmse": 0.0774,
+                "rmse_difference": 0.0029,
+                "improvement_pct": 3.73
+              }
+            ],
+            "season": "Summer (Held-Out Melt)"
+          },
+          {
+            "origin_date": "2026-01-17",
+            "nn_used": true,
+            "mean_model_rmse": 0.0521,
+            "mean_persistence_rmse": 0.0539,
+            "mean_rmse_difference": 0.0018,
+            "improvement_pct": 3.31,
+            "alpha_params": [
+              0.3,
+              0.06,
+              1.4
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0241,
+                "persistence_rmse": 0.0241,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.03
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0364,
+                "persistence_rmse": 0.0367,
+                "rmse_difference": 0.0003,
+                "improvement_pct": 0.82
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0461,
+                "persistence_rmse": 0.0472,
+                "rmse_difference": 0.0011,
+                "improvement_pct": 2.33
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0548,
+                "persistence_rmse": 0.0569,
+                "rmse_difference": 0.0021,
+                "improvement_pct": 3.7
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0625,
+                "persistence_rmse": 0.0645,
+                "rmse_difference": 0.002,
+                "improvement_pct": 3.09
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0669,
+                "persistence_rmse": 0.0699,
+                "rmse_difference": 0.003,
+                "improvement_pct": 4.26
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.0742,
+                "persistence_rmse": 0.0782,
+                "rmse_difference": 0.004,
+                "improvement_pct": 5.14
               }
             ],
             "season": "Summer (Held-Out Melt)"
           },
           {
             "origin_date": "2026-01-18",
-            "mean_model_rmse": 0.0554,
+            "nn_used": true,
+            "mean_model_rmse": 0.0552,
             "mean_persistence_rmse": 0.0577,
-            "mean_rmse_difference": 0.0023,
-            "improvement_pct": 3.96,
+            "mean_rmse_difference": 0.0025,
+            "improvement_pct": 4.33,
             "alpha_params": [
               0.3,
-              0.028,
-              2.0
+              0.06,
+              2.5
             ],
             "lead_metrics": [
               {
@@ -258,24 +388,24 @@
               },
               {
                 "lead_day": 2,
-                "model_rmse": 0.0416,
+                "model_rmse": 0.0414,
                 "persistence_rmse": 0.0419,
-                "rmse_difference": 0.0003,
-                "improvement_pct": 0.69
+                "rmse_difference": 0.0005,
+                "improvement_pct": 1.2
               },
               {
                 "lead_day": 3,
-                "model_rmse": 0.0511,
+                "model_rmse": 0.05,
                 "persistence_rmse": 0.0522,
-                "rmse_difference": 0.0011,
-                "improvement_pct": 2.06
+                "rmse_difference": 0.0022,
+                "improvement_pct": 4.17
               },
               {
                 "lead_day": 4,
-                "model_rmse": 0.058,
+                "model_rmse": 0.0578,
                 "persistence_rmse": 0.0598,
-                "rmse_difference": 0.0019,
-                "improvement_pct": 3.09
+                "rmse_difference": 0.002,
+                "improvement_pct": 3.35
               },
               {
                 "lead_day": 5,
@@ -302,15 +432,146 @@
             "season": "Summer (Held-Out Melt)"
           },
           {
-            "origin_date": "2026-01-21",
-            "mean_model_rmse": 0.0478,
-            "mean_persistence_rmse": 0.0493,
-            "mean_rmse_difference": 0.0016,
-            "improvement_pct": 3.18,
+            "origin_date": "2026-01-19",
+            "nn_used": true,
+            "mean_model_rmse": 0.0526,
+            "mean_persistence_rmse": 0.0541,
+            "mean_rmse_difference": 0.0015,
+            "improvement_pct": 2.77,
             "alpha_params": [
-              0.4,
-              0.028,
-              2.0
+              0.2,
+              0.06,
+              1.8
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0282,
+                "persistence_rmse": 0.0282,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.13
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0408,
+                "persistence_rmse": 0.0411,
+                "rmse_difference": 0.0003,
+                "improvement_pct": 0.65
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0503,
+                "persistence_rmse": 0.0505,
+                "rmse_difference": 0.0003,
+                "improvement_pct": 0.52
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0535,
+                "persistence_rmse": 0.055,
+                "rmse_difference": 0.0014,
+                "improvement_pct": 2.62
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0619,
+                "persistence_rmse": 0.0641,
+                "rmse_difference": 0.0021,
+                "improvement_pct": 3.32
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0659,
+                "persistence_rmse": 0.0689,
+                "rmse_difference": 0.003,
+                "improvement_pct": 4.28
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.0674,
+                "persistence_rmse": 0.0707,
+                "rmse_difference": 0.0033,
+                "improvement_pct": 4.67
+              }
+            ],
+            "season": "Summer (Held-Out Melt)"
+          },
+          {
+            "origin_date": "2026-01-20",
+            "nn_used": true,
+            "mean_model_rmse": 0.0507,
+            "mean_persistence_rmse": 0.0512,
+            "mean_rmse_difference": 0.0005,
+            "improvement_pct": 1.01,
+            "alpha_params": [
+              0.1,
+              0.035,
+              0.5
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.025,
+                "persistence_rmse": 0.025,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.11
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0397,
+                "persistence_rmse": 0.0397,
+                "rmse_difference": -0.0,
+                "improvement_pct": -0.01
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0474,
+                "persistence_rmse": 0.0475,
+                "rmse_difference": 0.0002,
+                "improvement_pct": 0.33
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0562,
+                "persistence_rmse": 0.0566,
+                "rmse_difference": 0.0004,
+                "improvement_pct": 0.79
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0584,
+                "persistence_rmse": 0.0592,
+                "rmse_difference": 0.0008,
+                "improvement_pct": 1.29
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0619,
+                "persistence_rmse": 0.063,
+                "rmse_difference": 0.001,
+                "improvement_pct": 1.66
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.066,
+                "persistence_rmse": 0.0672,
+                "rmse_difference": 0.0012,
+                "improvement_pct": 1.75
+              }
+            ],
+            "season": "Summer (Held-Out Melt)"
+          },
+          {
+            "origin_date": "2026-01-21",
+            "nn_used": true,
+            "mean_model_rmse": 0.0486,
+            "mean_persistence_rmse": 0.0493,
+            "mean_rmse_difference": 0.0007,
+            "improvement_pct": 1.48,
+            "alpha_params": [
+              0.2,
+              0.002,
+              2.5
             ],
             "lead_metrics": [
               {
@@ -324,43 +585,43 @@
                 "lead_day": 2,
                 "model_rmse": 0.0389,
                 "persistence_rmse": 0.0389,
-                "rmse_difference": 0.0001,
-                "improvement_pct": 0.15
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.01
               },
               {
                 "lead_day": 3,
-                "model_rmse": 0.0466,
+                "model_rmse": 0.0471,
                 "persistence_rmse": 0.0472,
-                "rmse_difference": 0.0007,
-                "improvement_pct": 1.41
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.25
               },
               {
                 "lead_day": 4,
-                "model_rmse": 0.0476,
+                "model_rmse": 0.0492,
                 "persistence_rmse": 0.0496,
-                "rmse_difference": 0.002,
-                "improvement_pct": 3.96
+                "rmse_difference": 0.0004,
+                "improvement_pct": 0.79
               },
               {
                 "lead_day": 5,
-                "model_rmse": 0.0514,
+                "model_rmse": 0.053,
                 "persistence_rmse": 0.0538,
-                "rmse_difference": 0.0024,
-                "improvement_pct": 4.4
+                "rmse_difference": 0.0008,
+                "improvement_pct": 1.42
               },
               {
                 "lead_day": 6,
-                "model_rmse": 0.0569,
+                "model_rmse": 0.0578,
                 "persistence_rmse": 0.059,
-                "rmse_difference": 0.0021,
-                "improvement_pct": 3.54
+                "rmse_difference": 0.0012,
+                "improvement_pct": 2.1
               },
               {
                 "lead_day": 7,
-                "model_rmse": 0.0626,
+                "model_rmse": 0.0639,
                 "persistence_rmse": 0.0665,
-                "rmse_difference": 0.0039,
-                "improvement_pct": 5.84
+                "rmse_difference": 0.0026,
+                "improvement_pct": 3.95
               }
             ],
             "season": "Summer (Held-Out Melt)"
@@ -368,29 +629,25 @@
         ]
       },
       "Autumn (Freeze-up)": {
-        "origin_count": 2,
+        "origin_count": 4,
         "block_window": "2025-03-01 to 2025-03-24",
-        "avg_model_rmse": 0.0529,
-        "avg_persistence_rmse": 0.0549,
-        "avg_rmse_difference": 0.002,
-        "improvement_pct": 3.64,
-        "ci_95": [
-          0.0018,
-          0.0021
-        ],
-        "is_significant_p05": true,
-        "p_value": 0.0,
+        "avg_model_rmse": 0.052,
+        "avg_persistence_rmse": 0.0543,
+        "avg_rmse_difference": 0.0023,
+        "improvement_pct": 4.19,
+        "significance_assessment": "omitted_small_sample_size (N < 8; individual seasonal blocks underpowered)",
         "origins": [
           {
             "origin_date": "2025-03-14",
-            "mean_model_rmse": 0.0496,
+            "nn_used": true,
+            "mean_model_rmse": 0.0493,
             "mean_persistence_rmse": 0.0515,
-            "mean_rmse_difference": 0.0018,
-            "improvement_pct": 3.53,
+            "mean_rmse_difference": 0.0022,
+            "improvement_pct": 4.25,
             "alpha_params": [
-              0.4,
-              0.028,
-              2.0
+              0.45,
+              0.06,
+              2.5
             ],
             "lead_metrics": [
               {
@@ -402,59 +659,190 @@
               },
               {
                 "lead_day": 2,
-                "model_rmse": 0.031,
+                "model_rmse": 0.0309,
                 "persistence_rmse": 0.0311,
-                "rmse_difference": 0.0001,
-                "improvement_pct": 0.2
+                "rmse_difference": 0.0002,
+                "improvement_pct": 0.59
               },
               {
                 "lead_day": 3,
-                "model_rmse": 0.0381,
+                "model_rmse": 0.0371,
                 "persistence_rmse": 0.0387,
-                "rmse_difference": 0.0006,
-                "improvement_pct": 1.51
+                "rmse_difference": 0.0016,
+                "improvement_pct": 4.23
               },
               {
                 "lead_day": 4,
-                "model_rmse": 0.0551,
+                "model_rmse": 0.0545,
                 "persistence_rmse": 0.0564,
-                "rmse_difference": 0.0013,
-                "improvement_pct": 2.28
+                "rmse_difference": 0.0019,
+                "improvement_pct": 3.44
               },
               {
                 "lead_day": 5,
-                "model_rmse": 0.0646,
+                "model_rmse": 0.0643,
                 "persistence_rmse": 0.0675,
-                "rmse_difference": 0.003,
-                "improvement_pct": 4.43
+                "rmse_difference": 0.0032,
+                "improvement_pct": 4.81
               },
               {
                 "lead_day": 6,
-                "model_rmse": 0.0674,
+                "model_rmse": 0.0672,
                 "persistence_rmse": 0.071,
-                "rmse_difference": 0.0035,
-                "improvement_pct": 4.98
+                "rmse_difference": 0.0038,
+                "improvement_pct": 5.38
               },
               {
                 "lead_day": 7,
-                "model_rmse": 0.0748,
+                "model_rmse": 0.0744,
                 "persistence_rmse": 0.079,
+                "rmse_difference": 0.0046,
+                "improvement_pct": 5.81
+              }
+            ],
+            "season": "Autumn (Freeze-up)"
+          },
+          {
+            "origin_date": "2025-03-15",
+            "nn_used": true,
+            "mean_model_rmse": 0.0514,
+            "mean_persistence_rmse": 0.0536,
+            "mean_rmse_difference": 0.0022,
+            "improvement_pct": 4.16,
+            "alpha_params": [
+              0.4,
+              0.06,
+              2.5
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0204,
+                "persistence_rmse": 0.0204,
+                "rmse_difference": -0.0,
+                "improvement_pct": -0.09
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0301,
+                "persistence_rmse": 0.0303,
+                "rmse_difference": 0.0002,
+                "improvement_pct": 0.68
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0482,
+                "persistence_rmse": 0.0496,
+                "rmse_difference": 0.0014,
+                "improvement_pct": 2.9
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0589,
+                "persistence_rmse": 0.0618,
+                "rmse_difference": 0.0029,
+                "improvement_pct": 4.62
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0625,
+                "persistence_rmse": 0.0657,
+                "rmse_difference": 0.0031,
+                "improvement_pct": 4.78
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0697,
+                "persistence_rmse": 0.0737,
+                "rmse_difference": 0.004,
+                "improvement_pct": 5.38
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.07,
+                "persistence_rmse": 0.0739,
+                "rmse_difference": 0.0039,
+                "improvement_pct": 5.34
+              }
+            ],
+            "season": "Autumn (Freeze-up)"
+          },
+          {
+            "origin_date": "2025-03-16",
+            "nn_used": true,
+            "mean_model_rmse": 0.0517,
+            "mean_persistence_rmse": 0.0537,
+            "mean_rmse_difference": 0.002,
+            "improvement_pct": 3.8,
+            "alpha_params": [
+              0.5,
+              0.06,
+              2.5
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0183,
+                "persistence_rmse": 0.0183,
+                "rmse_difference": -0.0,
+                "improvement_pct": -0.07
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.04,
+                "persistence_rmse": 0.0402,
+                "rmse_difference": 0.0002,
+                "improvement_pct": 0.42
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0517,
+                "persistence_rmse": 0.0533,
+                "rmse_difference": 0.0016,
+                "improvement_pct": 3.02
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0548,
+                "persistence_rmse": 0.0575,
+                "rmse_difference": 0.0027,
+                "improvement_pct": 4.68
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0624,
+                "persistence_rmse": 0.0656,
+                "rmse_difference": 0.0033,
+                "improvement_pct": 4.96
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0654,
+                "persistence_rmse": 0.0677,
+                "rmse_difference": 0.0024,
+                "improvement_pct": 3.49
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.0691,
+                "persistence_rmse": 0.0734,
                 "rmse_difference": 0.0042,
-                "improvement_pct": 5.37
+                "improvement_pct": 5.76
               }
             ],
             "season": "Autumn (Freeze-up)"
           },
           {
             "origin_date": "2025-03-17",
-            "mean_model_rmse": 0.0563,
+            "nn_used": true,
+            "mean_model_rmse": 0.0557,
             "mean_persistence_rmse": 0.0584,
-            "mean_rmse_difference": 0.0021,
-            "improvement_pct": 3.57,
+            "mean_rmse_difference": 0.0028,
+            "improvement_pct": 4.72,
             "alpha_params": [
-              0.4,
-              0.028,
-              2.0
+              0.5,
+              0.06,
+              2.5
             ],
             "lead_metrics": [
               {
@@ -466,45 +854,45 @@
               },
               {
                 "lead_day": 2,
-                "model_rmse": 0.0481,
+                "model_rmse": 0.048,
                 "persistence_rmse": 0.0483,
-                "rmse_difference": 0.0001,
-                "improvement_pct": 0.24
+                "rmse_difference": 0.0003,
+                "improvement_pct": 0.56
               },
               {
                 "lead_day": 3,
-                "model_rmse": 0.0514,
+                "model_rmse": 0.0498,
                 "persistence_rmse": 0.0522,
-                "rmse_difference": 0.0008,
-                "improvement_pct": 1.61
+                "rmse_difference": 0.0024,
+                "improvement_pct": 4.56
               },
               {
                 "lead_day": 4,
-                "model_rmse": 0.0585,
+                "model_rmse": 0.0568,
                 "persistence_rmse": 0.0608,
-                "rmse_difference": 0.0023,
-                "improvement_pct": 3.83
+                "rmse_difference": 0.004,
+                "improvement_pct": 6.6
               },
               {
                 "lead_day": 5,
-                "model_rmse": 0.0609,
+                "model_rmse": 0.0605,
                 "persistence_rmse": 0.0638,
-                "rmse_difference": 0.003,
-                "improvement_pct": 4.65
+                "rmse_difference": 0.0033,
+                "improvement_pct": 5.18
               },
               {
                 "lead_day": 6,
-                "model_rmse": 0.0656,
+                "model_rmse": 0.0652,
                 "persistence_rmse": 0.0693,
-                "rmse_difference": 0.0037,
-                "improvement_pct": 5.29
+                "rmse_difference": 0.0041,
+                "improvement_pct": 5.85
               },
               {
                 "lead_day": 7,
-                "model_rmse": 0.0749,
+                "model_rmse": 0.0744,
                 "persistence_rmse": 0.0796,
-                "rmse_difference": 0.0047,
-                "improvement_pct": 5.86
+                "rmse_difference": 0.0052,
+                "improvement_pct": 6.56
               }
             ],
             "season": "Autumn (Freeze-up)"
@@ -512,29 +900,25 @@
         ]
       },
       "Winter (Maximum Pack)": {
-        "origin_count": 2,
+        "origin_count": 5,
         "block_window": "2025-07-01 to 2025-07-25",
-        "avg_model_rmse": 0.0688,
-        "avg_persistence_rmse": 0.068,
-        "avg_rmse_difference": -0.0008,
-        "improvement_pct": -1.1,
-        "ci_95": [
-          -0.0013,
-          -0.0002
-        ],
-        "is_significant_p05": false,
-        "p_value": 0.0,
+        "avg_model_rmse": 0.0666,
+        "avg_persistence_rmse": 0.0665,
+        "avg_rmse_difference": -0.0001,
+        "improvement_pct": -0.18,
+        "significance_assessment": "omitted_small_sample_size (N < 8; individual seasonal blocks underpowered)",
         "origins": [
           {
             "origin_date": "2025-07-14",
-            "mean_model_rmse": 0.0682,
+            "nn_used": true,
+            "mean_model_rmse": 0.068,
             "mean_persistence_rmse": 0.068,
-            "mean_rmse_difference": -0.0002,
-            "improvement_pct": -0.34,
+            "mean_rmse_difference": -0.0001,
+            "improvement_pct": -0.13,
             "alpha_params": [
-              0.2,
-              0.028,
-              2.0
+              0.15,
+              0.06,
+              1.0
             ],
             "lead_metrics": [
               {
@@ -549,56 +933,252 @@
                 "model_rmse": 0.0544,
                 "persistence_rmse": 0.0545,
                 "rmse_difference": 0.0001,
-                "improvement_pct": 0.11
+                "improvement_pct": 0.2
               },
               {
                 "lead_day": 3,
                 "model_rmse": 0.066,
                 "persistence_rmse": 0.0661,
                 "rmse_difference": 0.0001,
-                "improvement_pct": 0.19
+                "improvement_pct": 0.2
               },
               {
                 "lead_day": 4,
-                "model_rmse": 0.074,
+                "model_rmse": 0.0739,
                 "persistence_rmse": 0.0739,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.1
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0793,
+                "persistence_rmse": 0.0793,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.07
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0833,
+                "persistence_rmse": 0.0831,
+                "rmse_difference": -0.0002,
+                "improvement_pct": -0.21
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.0867,
+                "persistence_rmse": 0.0861,
+                "rmse_difference": -0.0006,
+                "improvement_pct": -0.67
+              }
+            ],
+            "season": "Winter (Maximum Pack)"
+          },
+          {
+            "origin_date": "2025-07-15",
+            "nn_used": true,
+            "mean_model_rmse": 0.0668,
+            "mean_persistence_rmse": 0.0668,
+            "mean_rmse_difference": 0.0,
+            "improvement_pct": 0.04,
+            "alpha_params": [
+              0.2,
+              0.06,
+              1.6
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0372,
+                "persistence_rmse": 0.0372,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.03
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0537,
+                "persistence_rmse": 0.0538,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.22
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0627,
+                "persistence_rmse": 0.063,
+                "rmse_difference": 0.0003,
+                "improvement_pct": 0.45
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0704,
+                "persistence_rmse": 0.0708,
+                "rmse_difference": 0.0004,
+                "improvement_pct": 0.58
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0769,
+                "persistence_rmse": 0.0772,
+                "rmse_difference": 0.0003,
+                "improvement_pct": 0.41
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0818,
+                "persistence_rmse": 0.0818,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.02
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.085,
+                "persistence_rmse": 0.0841,
+                "rmse_difference": -0.0009,
+                "improvement_pct": -1.13
+              }
+            ],
+            "season": "Winter (Maximum Pack)"
+          },
+          {
+            "origin_date": "2025-07-16",
+            "nn_used": true,
+            "mean_model_rmse": 0.0656,
+            "mean_persistence_rmse": 0.0659,
+            "mean_rmse_difference": 0.0003,
+            "improvement_pct": 0.39,
+            "alpha_params": [
+              0.2,
+              0.06,
+              1.8
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0367,
+                "persistence_rmse": 0.0367,
                 "rmse_difference": -0.0,
                 "improvement_pct": -0.04
               },
               {
+                "lead_day": 2,
+                "model_rmse": 0.0498,
+                "persistence_rmse": 0.0499,
+                "rmse_difference": 0.0002,
+                "improvement_pct": 0.31
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0588,
+                "persistence_rmse": 0.0596,
+                "rmse_difference": 0.0009,
+                "improvement_pct": 1.46
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0679,
+                "persistence_rmse": 0.0689,
+                "rmse_difference": 0.001,
+                "improvement_pct": 1.47
+              },
+              {
                 "lead_day": 5,
-                "model_rmse": 0.0794,
-                "persistence_rmse": 0.0793,
-                "rmse_difference": -0.0001,
-                "improvement_pct": -0.14
+                "model_rmse": 0.0744,
+                "persistence_rmse": 0.0752,
+                "rmse_difference": 0.0008,
+                "improvement_pct": 1.1
               },
               {
                 "lead_day": 6,
-                "model_rmse": 0.0836,
-                "persistence_rmse": 0.0831,
-                "rmse_difference": -0.0005,
-                "improvement_pct": -0.58
+                "model_rmse": 0.0817,
+                "persistence_rmse": 0.0817,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.0
               },
               {
                 "lead_day": 7,
-                "model_rmse": 0.0872,
-                "persistence_rmse": 0.0861,
+                "model_rmse": 0.0901,
+                "persistence_rmse": 0.0892,
+                "rmse_difference": -0.0009,
+                "improvement_pct": -1.0
+              }
+            ],
+            "season": "Winter (Maximum Pack)"
+          },
+          {
+            "origin_date": "2025-07-17",
+            "nn_used": true,
+            "mean_model_rmse": 0.0638,
+            "mean_persistence_rmse": 0.0638,
+            "mean_rmse_difference": 0.0,
+            "improvement_pct": 0.02,
+            "alpha_params": [
+              0.15,
+              0.06,
+              1.4
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0273,
+                "persistence_rmse": 0.0273,
+                "rmse_difference": -0.0,
+                "improvement_pct": -0.04
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0424,
+                "persistence_rmse": 0.0427,
+                "rmse_difference": 0.0003,
+                "improvement_pct": 0.66
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0549,
+                "persistence_rmse": 0.0557,
+                "rmse_difference": 0.0008,
+                "improvement_pct": 1.35
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.064,
+                "persistence_rmse": 0.0646,
+                "rmse_difference": 0.0006,
+                "improvement_pct": 1.0
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0727,
+                "persistence_rmse": 0.0728,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.06
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.086,
+                "persistence_rmse": 0.0854,
+                "rmse_difference": -0.0006,
+                "improvement_pct": -0.71
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.0991,
+                "persistence_rmse": 0.098,
                 "rmse_difference": -0.0011,
-                "improvement_pct": -1.27
+                "improvement_pct": -1.11
               }
             ],
             "season": "Winter (Maximum Pack)"
           },
           {
             "origin_date": "2025-07-18",
-            "mean_model_rmse": 0.0694,
+            "nn_used": true,
+            "mean_model_rmse": 0.069,
             "mean_persistence_rmse": 0.0681,
-            "mean_rmse_difference": -0.0013,
-            "improvement_pct": -1.91,
+            "mean_rmse_difference": -0.0009,
+            "improvement_pct": -1.36,
             "alpha_params": [
-              0.2,
-              0.028,
-              2.0
+              0.15,
+              0.06,
+              1.4
             ],
             "lead_metrics": [
               {
@@ -613,42 +1193,42 @@
                 "model_rmse": 0.0465,
                 "persistence_rmse": 0.0465,
                 "rmse_difference": 0.0,
-                "improvement_pct": 0.04
+                "improvement_pct": 0.06
               },
               {
                 "lead_day": 3,
-                "model_rmse": 0.0587,
+                "model_rmse": 0.0588,
                 "persistence_rmse": 0.0585,
-                "rmse_difference": -0.0002,
-                "improvement_pct": -0.3
+                "rmse_difference": -0.0003,
+                "improvement_pct": -0.46
               },
               {
                 "lead_day": 4,
-                "model_rmse": 0.0692,
+                "model_rmse": 0.0688,
                 "persistence_rmse": 0.0679,
-                "rmse_difference": -0.0013,
-                "improvement_pct": -1.92
+                "rmse_difference": -0.0009,
+                "improvement_pct": -1.33
               },
               {
                 "lead_day": 5,
-                "model_rmse": 0.0841,
+                "model_rmse": 0.0835,
                 "persistence_rmse": 0.0819,
-                "rmse_difference": -0.0022,
-                "improvement_pct": -2.7
+                "rmse_difference": -0.0016,
+                "improvement_pct": -1.92
               },
               {
                 "lead_day": 6,
-                "model_rmse": 0.0984,
+                "model_rmse": 0.0976,
                 "persistence_rmse": 0.0957,
-                "rmse_difference": -0.0027,
-                "improvement_pct": -2.85
+                "rmse_difference": -0.0019,
+                "improvement_pct": -2.03
               },
               {
                 "lead_day": 7,
-                "model_rmse": 0.0994,
+                "model_rmse": 0.0985,
                 "persistence_rmse": 0.0966,
-                "rmse_difference": -0.0028,
-                "improvement_pct": -2.85
+                "rmse_difference": -0.0019,
+                "improvement_pct": -2.02
               }
             ],
             "season": "Winter (Maximum Pack)"
@@ -656,29 +1236,25 @@
         ]
       },
       "Spring (Retreat / Breakup)": {
-        "origin_count": 2,
+        "origin_count": 5,
         "block_window": "2025-10-01 to 2025-10-25",
-        "avg_model_rmse": 0.0557,
-        "avg_persistence_rmse": 0.0558,
-        "avg_rmse_difference": 0.0001,
-        "improvement_pct": 0.27,
-        "ci_95": [
-          0.0001,
-          0.0002
-        ],
-        "is_significant_p05": true,
-        "p_value": 0.0,
+        "avg_model_rmse": 0.0554,
+        "avg_persistence_rmse": 0.0555,
+        "avg_rmse_difference": 0.0,
+        "improvement_pct": 0.07,
+        "significance_assessment": "omitted_small_sample_size (N < 8; individual seasonal blocks underpowered)",
         "origins": [
           {
             "origin_date": "2025-10-14",
+            "nn_used": true,
             "mean_model_rmse": 0.0586,
             "mean_persistence_rmse": 0.0587,
-            "mean_rmse_difference": 0.0001,
-            "improvement_pct": 0.17,
+            "mean_rmse_difference": 0.0,
+            "improvement_pct": 0.07,
             "alpha_params": [
-              0.2,
-              0.01,
-              1.0
+              0.05,
+              0.002,
+              0.5
             ],
             "lead_metrics": [
               {
@@ -693,56 +1269,252 @@
                 "model_rmse": 0.0414,
                 "persistence_rmse": 0.0415,
                 "rmse_difference": 0.0,
-                "improvement_pct": 0.08
+                "improvement_pct": 0.05
               },
               {
                 "lead_day": 3,
-                "model_rmse": 0.0533,
+                "model_rmse": 0.0534,
                 "persistence_rmse": 0.0534,
-                "rmse_difference": 0.0001,
-                "improvement_pct": 0.11
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.06
               },
               {
                 "lead_day": 4,
                 "model_rmse": 0.0617,
                 "persistence_rmse": 0.0617,
-                "rmse_difference": 0.0001,
-                "improvement_pct": 0.16
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.08
               },
               {
                 "lead_day": 5,
                 "model_rmse": 0.0715,
                 "persistence_rmse": 0.0716,
-                "rmse_difference": 0.0001,
-                "improvement_pct": 0.13
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.03
               },
               {
                 "lead_day": 6,
-                "model_rmse": 0.0762,
+                "model_rmse": 0.0763,
                 "persistence_rmse": 0.0763,
-                "rmse_difference": 0.0001,
-                "improvement_pct": 0.17
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.02
               },
               {
                 "lead_day": 7,
-                "model_rmse": 0.0817,
+                "model_rmse": 0.0819,
                 "persistence_rmse": 0.082,
-                "rmse_difference": 0.0003,
-                "improvement_pct": 0.36
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.07
+              }
+            ],
+            "season": "Spring (Retreat / Breakup)"
+          },
+          {
+            "origin_date": "2025-10-15",
+            "nn_used": true,
+            "mean_model_rmse": 0.0576,
+            "mean_persistence_rmse": 0.0577,
+            "mean_rmse_difference": 0.0,
+            "improvement_pct": 0.07,
+            "alpha_params": [
+              0.05,
+              0.002,
+              0.5
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0283,
+                "persistence_rmse": 0.0283,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.04
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0422,
+                "persistence_rmse": 0.0422,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.06
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0513,
+                "persistence_rmse": 0.0514,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.07
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0624,
+                "persistence_rmse": 0.0625,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.03
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0677,
+                "persistence_rmse": 0.0677,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.02
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0749,
+                "persistence_rmse": 0.0749,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.07
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.0767,
+                "persistence_rmse": 0.0768,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.13
+              }
+            ],
+            "season": "Spring (Retreat / Breakup)"
+          },
+          {
+            "origin_date": "2025-10-16",
+            "nn_used": true,
+            "mean_model_rmse": 0.0548,
+            "mean_persistence_rmse": 0.0548,
+            "mean_rmse_difference": 0.0,
+            "improvement_pct": 0.0,
+            "alpha_params": [
+              0.05,
+              0.002,
+              0.5
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0264,
+                "persistence_rmse": 0.0264,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.02
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0388,
+                "persistence_rmse": 0.0388,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.05
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0519,
+                "persistence_rmse": 0.0519,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0592,
+                "persistence_rmse": 0.0591,
+                "rmse_difference": -0.0,
+                "improvement_pct": -0.0
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0672,
+                "persistence_rmse": 0.0672,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.04
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0693,
+                "persistence_rmse": 0.0693,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.08
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.0707,
+                "persistence_rmse": 0.0708,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.08
+              }
+            ],
+            "season": "Spring (Retreat / Breakup)"
+          },
+          {
+            "origin_date": "2025-10-17",
+            "nn_used": true,
+            "mean_model_rmse": 0.0531,
+            "mean_persistence_rmse": 0.0531,
+            "mean_rmse_difference": 0.0001,
+            "improvement_pct": 0.11,
+            "alpha_params": [
+              0.05,
+              0.002,
+              0.5
+            ],
+            "lead_metrics": [
+              {
+                "lead_day": 1,
+                "model_rmse": 0.0297,
+                "persistence_rmse": 0.0297,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.01
+              },
+              {
+                "lead_day": 2,
+                "model_rmse": 0.0412,
+                "persistence_rmse": 0.0412,
+                "rmse_difference": -0.0,
+                "improvement_pct": -0.02
+              },
+              {
+                "lead_day": 3,
+                "model_rmse": 0.0506,
+                "persistence_rmse": 0.0506,
+                "rmse_difference": -0.0,
+                "improvement_pct": -0.02
+              },
+              {
+                "lead_day": 4,
+                "model_rmse": 0.0593,
+                "persistence_rmse": 0.0594,
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.04
+              },
+              {
+                "lead_day": 5,
+                "model_rmse": 0.0614,
+                "persistence_rmse": 0.0615,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.1
+              },
+              {
+                "lead_day": 6,
+                "model_rmse": 0.0634,
+                "persistence_rmse": 0.0635,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.11
+              },
+              {
+                "lead_day": 7,
+                "model_rmse": 0.066,
+                "persistence_rmse": 0.0661,
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.12
               }
             ],
             "season": "Spring (Retreat / Breakup)"
           },
           {
             "origin_date": "2025-10-18",
-            "mean_model_rmse": 0.0528,
+            "nn_used": true,
+            "mean_model_rmse": 0.053,
             "mean_persistence_rmse": 0.053,
-            "mean_rmse_difference": 0.0002,
-            "improvement_pct": 0.38,
+            "mean_rmse_difference": 0.0,
+            "improvement_pct": 0.05,
             "alpha_params": [
-              0.2,
-              0.01,
-              1.0
+              0.05,
+              0.002,
+              0.5
             ],
             "lead_metrics": [
               {
@@ -757,42 +1529,42 @@
                 "model_rmse": 0.0425,
                 "persistence_rmse": 0.0425,
                 "rmse_difference": -0.0,
-                "improvement_pct": -0.01
+                "improvement_pct": -0.06
               },
               {
                 "lead_day": 3,
-                "model_rmse": 0.0538,
+                "model_rmse": 0.0539,
                 "persistence_rmse": 0.0539,
-                "rmse_difference": 0.0001,
-                "improvement_pct": 0.09
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.0
               },
               {
                 "lead_day": 4,
-                "model_rmse": 0.0581,
+                "model_rmse": 0.0582,
                 "persistence_rmse": 0.0582,
-                "rmse_difference": 0.0001,
-                "improvement_pct": 0.25
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.06
               },
               {
                 "lead_day": 5,
-                "model_rmse": 0.0613,
+                "model_rmse": 0.0615,
                 "persistence_rmse": 0.0616,
-                "rmse_difference": 0.0002,
-                "improvement_pct": 0.36
+                "rmse_difference": 0.0,
+                "improvement_pct": 0.08
               },
               {
                 "lead_day": 6,
-                "model_rmse": 0.0602,
+                "model_rmse": 0.0605,
                 "persistence_rmse": 0.0605,
-                "rmse_difference": 0.0004,
-                "improvement_pct": 0.63
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.11
               },
               {
                 "lead_day": 7,
-                "model_rmse": 0.0627,
+                "model_rmse": 0.0632,
                 "persistence_rmse": 0.0633,
-                "rmse_difference": 0.0005,
-                "improvement_pct": 0.81
+                "rmse_difference": 0.0001,
+                "improvement_pct": 0.11
               }
             ],
             "season": "Spring (Retreat / Breakup)"
@@ -803,14 +1575,15 @@
     "sample_origins": [
       {
         "origin_date": "2026-01-15",
-        "mean_model_rmse": 0.0483,
+        "nn_used": true,
+        "mean_model_rmse": 0.0481,
         "mean_persistence_rmse": 0.0498,
-        "mean_rmse_difference": 0.0016,
-        "improvement_pct": 3.12,
+        "mean_rmse_difference": 0.0018,
+        "improvement_pct": 3.56,
         "alpha_params": [
-          0.25,
-          0.028,
-          2.0
+          0.3,
+          0.06,
+          2.5
         ],
         "lead_metrics": [
           {
@@ -822,59 +1595,190 @@
           },
           {
             "lead_day": 2,
-            "model_rmse": 0.0306,
+            "model_rmse": 0.0305,
             "persistence_rmse": 0.0308,
-            "rmse_difference": 0.0002,
-            "improvement_pct": 0.53
+            "rmse_difference": 0.0003,
+            "improvement_pct": 0.89
           },
           {
             "lead_day": 3,
-            "model_rmse": 0.0373,
+            "model_rmse": 0.0369,
             "persistence_rmse": 0.0378,
-            "rmse_difference": 0.0005,
-            "improvement_pct": 1.35
+            "rmse_difference": 0.0009,
+            "improvement_pct": 2.3
           },
           {
             "lead_day": 4,
-            "model_rmse": 0.0507,
+            "model_rmse": 0.0506,
             "persistence_rmse": 0.0524,
-            "rmse_difference": 0.0017,
-            "improvement_pct": 3.19
+            "rmse_difference": 0.0019,
+            "improvement_pct": 3.54
           },
           {
             "lead_day": 5,
-            "model_rmse": 0.0581,
+            "model_rmse": 0.0578,
             "persistence_rmse": 0.0607,
-            "rmse_difference": 0.0026,
-            "improvement_pct": 4.25
+            "rmse_difference": 0.0029,
+            "improvement_pct": 4.76
           },
           {
             "lead_day": 6,
-            "model_rmse": 0.0652,
+            "model_rmse": 0.0649,
             "persistence_rmse": 0.0683,
-            "rmse_difference": 0.0031,
-            "improvement_pct": 4.47
+            "rmse_difference": 0.0034,
+            "improvement_pct": 4.98
           },
           {
             "lead_day": 7,
-            "model_rmse": 0.0728,
+            "model_rmse": 0.0725,
             "persistence_rmse": 0.0756,
-            "rmse_difference": 0.0028,
-            "improvement_pct": 3.74
+            "rmse_difference": 0.0031,
+            "improvement_pct": 4.09
+          }
+        ],
+        "season": "Summer (Held-Out Melt)"
+      },
+      {
+        "origin_date": "2026-01-16",
+        "nn_used": true,
+        "mean_model_rmse": 0.0515,
+        "mean_persistence_rmse": 0.0528,
+        "mean_rmse_difference": 0.0013,
+        "improvement_pct": 2.54,
+        "alpha_params": [
+          0.2,
+          0.06,
+          1.6
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0228,
+            "persistence_rmse": 0.0228,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.12
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0318,
+            "persistence_rmse": 0.0319,
+            "rmse_difference": 0.0002,
+            "improvement_pct": 0.56
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0452,
+            "persistence_rmse": 0.0461,
+            "rmse_difference": 0.0009,
+            "improvement_pct": 1.98
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0545,
+            "persistence_rmse": 0.0561,
+            "rmse_difference": 0.0016,
+            "improvement_pct": 2.91
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0623,
+            "persistence_rmse": 0.0643,
+            "rmse_difference": 0.002,
+            "improvement_pct": 3.17
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0691,
+            "persistence_rmse": 0.071,
+            "rmse_difference": 0.0019,
+            "improvement_pct": 2.7
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.0745,
+            "persistence_rmse": 0.0774,
+            "rmse_difference": 0.0029,
+            "improvement_pct": 3.73
+          }
+        ],
+        "season": "Summer (Held-Out Melt)"
+      },
+      {
+        "origin_date": "2026-01-17",
+        "nn_used": true,
+        "mean_model_rmse": 0.0521,
+        "mean_persistence_rmse": 0.0539,
+        "mean_rmse_difference": 0.0018,
+        "improvement_pct": 3.31,
+        "alpha_params": [
+          0.3,
+          0.06,
+          1.4
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0241,
+            "persistence_rmse": 0.0241,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.03
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0364,
+            "persistence_rmse": 0.0367,
+            "rmse_difference": 0.0003,
+            "improvement_pct": 0.82
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0461,
+            "persistence_rmse": 0.0472,
+            "rmse_difference": 0.0011,
+            "improvement_pct": 2.33
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0548,
+            "persistence_rmse": 0.0569,
+            "rmse_difference": 0.0021,
+            "improvement_pct": 3.7
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0625,
+            "persistence_rmse": 0.0645,
+            "rmse_difference": 0.002,
+            "improvement_pct": 3.09
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0669,
+            "persistence_rmse": 0.0699,
+            "rmse_difference": 0.003,
+            "improvement_pct": 4.26
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.0742,
+            "persistence_rmse": 0.0782,
+            "rmse_difference": 0.004,
+            "improvement_pct": 5.14
           }
         ],
         "season": "Summer (Held-Out Melt)"
       },
       {
         "origin_date": "2026-01-18",
-        "mean_model_rmse": 0.0554,
+        "nn_used": true,
+        "mean_model_rmse": 0.0552,
         "mean_persistence_rmse": 0.0577,
-        "mean_rmse_difference": 0.0023,
-        "improvement_pct": 3.96,
+        "mean_rmse_difference": 0.0025,
+        "improvement_pct": 4.33,
         "alpha_params": [
           0.3,
-          0.028,
-          2.0
+          0.06,
+          2.5
         ],
         "lead_metrics": [
           {
@@ -886,24 +1790,24 @@
           },
           {
             "lead_day": 2,
-            "model_rmse": 0.0416,
+            "model_rmse": 0.0414,
             "persistence_rmse": 0.0419,
-            "rmse_difference": 0.0003,
-            "improvement_pct": 0.69
+            "rmse_difference": 0.0005,
+            "improvement_pct": 1.2
           },
           {
             "lead_day": 3,
-            "model_rmse": 0.0511,
+            "model_rmse": 0.05,
             "persistence_rmse": 0.0522,
-            "rmse_difference": 0.0011,
-            "improvement_pct": 2.06
+            "rmse_difference": 0.0022,
+            "improvement_pct": 4.17
           },
           {
             "lead_day": 4,
-            "model_rmse": 0.058,
+            "model_rmse": 0.0578,
             "persistence_rmse": 0.0598,
-            "rmse_difference": 0.0019,
-            "improvement_pct": 3.09
+            "rmse_difference": 0.002,
+            "improvement_pct": 3.35
           },
           {
             "lead_day": 5,
@@ -930,15 +1834,146 @@
         "season": "Summer (Held-Out Melt)"
       },
       {
-        "origin_date": "2026-01-21",
-        "mean_model_rmse": 0.0478,
-        "mean_persistence_rmse": 0.0493,
-        "mean_rmse_difference": 0.0016,
-        "improvement_pct": 3.18,
+        "origin_date": "2026-01-19",
+        "nn_used": true,
+        "mean_model_rmse": 0.0526,
+        "mean_persistence_rmse": 0.0541,
+        "mean_rmse_difference": 0.0015,
+        "improvement_pct": 2.77,
         "alpha_params": [
-          0.4,
-          0.028,
-          2.0
+          0.2,
+          0.06,
+          1.8
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0282,
+            "persistence_rmse": 0.0282,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.13
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0408,
+            "persistence_rmse": 0.0411,
+            "rmse_difference": 0.0003,
+            "improvement_pct": 0.65
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0503,
+            "persistence_rmse": 0.0505,
+            "rmse_difference": 0.0003,
+            "improvement_pct": 0.52
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0535,
+            "persistence_rmse": 0.055,
+            "rmse_difference": 0.0014,
+            "improvement_pct": 2.62
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0619,
+            "persistence_rmse": 0.0641,
+            "rmse_difference": 0.0021,
+            "improvement_pct": 3.32
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0659,
+            "persistence_rmse": 0.0689,
+            "rmse_difference": 0.003,
+            "improvement_pct": 4.28
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.0674,
+            "persistence_rmse": 0.0707,
+            "rmse_difference": 0.0033,
+            "improvement_pct": 4.67
+          }
+        ],
+        "season": "Summer (Held-Out Melt)"
+      },
+      {
+        "origin_date": "2026-01-20",
+        "nn_used": true,
+        "mean_model_rmse": 0.0507,
+        "mean_persistence_rmse": 0.0512,
+        "mean_rmse_difference": 0.0005,
+        "improvement_pct": 1.01,
+        "alpha_params": [
+          0.1,
+          0.035,
+          0.5
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.025,
+            "persistence_rmse": 0.025,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.11
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0397,
+            "persistence_rmse": 0.0397,
+            "rmse_difference": -0.0,
+            "improvement_pct": -0.01
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0474,
+            "persistence_rmse": 0.0475,
+            "rmse_difference": 0.0002,
+            "improvement_pct": 0.33
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0562,
+            "persistence_rmse": 0.0566,
+            "rmse_difference": 0.0004,
+            "improvement_pct": 0.79
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0584,
+            "persistence_rmse": 0.0592,
+            "rmse_difference": 0.0008,
+            "improvement_pct": 1.29
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0619,
+            "persistence_rmse": 0.063,
+            "rmse_difference": 0.001,
+            "improvement_pct": 1.66
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.066,
+            "persistence_rmse": 0.0672,
+            "rmse_difference": 0.0012,
+            "improvement_pct": 1.75
+          }
+        ],
+        "season": "Summer (Held-Out Melt)"
+      },
+      {
+        "origin_date": "2026-01-21",
+        "nn_used": true,
+        "mean_model_rmse": 0.0486,
+        "mean_persistence_rmse": 0.0493,
+        "mean_rmse_difference": 0.0007,
+        "improvement_pct": 1.48,
+        "alpha_params": [
+          0.2,
+          0.002,
+          2.5
         ],
         "lead_metrics": [
           {
@@ -952,57 +1987,58 @@
             "lead_day": 2,
             "model_rmse": 0.0389,
             "persistence_rmse": 0.0389,
-            "rmse_difference": 0.0001,
-            "improvement_pct": 0.15
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.01
           },
           {
             "lead_day": 3,
-            "model_rmse": 0.0466,
+            "model_rmse": 0.0471,
             "persistence_rmse": 0.0472,
-            "rmse_difference": 0.0007,
-            "improvement_pct": 1.41
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.25
           },
           {
             "lead_day": 4,
-            "model_rmse": 0.0476,
+            "model_rmse": 0.0492,
             "persistence_rmse": 0.0496,
-            "rmse_difference": 0.002,
-            "improvement_pct": 3.96
+            "rmse_difference": 0.0004,
+            "improvement_pct": 0.79
           },
           {
             "lead_day": 5,
-            "model_rmse": 0.0514,
+            "model_rmse": 0.053,
             "persistence_rmse": 0.0538,
-            "rmse_difference": 0.0024,
-            "improvement_pct": 4.4
+            "rmse_difference": 0.0008,
+            "improvement_pct": 1.42
           },
           {
             "lead_day": 6,
-            "model_rmse": 0.0569,
+            "model_rmse": 0.0578,
             "persistence_rmse": 0.059,
-            "rmse_difference": 0.0021,
-            "improvement_pct": 3.54
+            "rmse_difference": 0.0012,
+            "improvement_pct": 2.1
           },
           {
             "lead_day": 7,
-            "model_rmse": 0.0626,
+            "model_rmse": 0.0639,
             "persistence_rmse": 0.0665,
-            "rmse_difference": 0.0039,
-            "improvement_pct": 5.84
+            "rmse_difference": 0.0026,
+            "improvement_pct": 3.95
           }
         ],
         "season": "Summer (Held-Out Melt)"
       },
       {
         "origin_date": "2025-03-14",
-        "mean_model_rmse": 0.0496,
+        "nn_used": true,
+        "mean_model_rmse": 0.0493,
         "mean_persistence_rmse": 0.0515,
-        "mean_rmse_difference": 0.0018,
-        "improvement_pct": 3.53,
+        "mean_rmse_difference": 0.0022,
+        "improvement_pct": 4.25,
         "alpha_params": [
-          0.4,
-          0.028,
-          2.0
+          0.45,
+          0.06,
+          2.5
         ],
         "lead_metrics": [
           {
@@ -1014,59 +2050,190 @@
           },
           {
             "lead_day": 2,
-            "model_rmse": 0.031,
+            "model_rmse": 0.0309,
             "persistence_rmse": 0.0311,
-            "rmse_difference": 0.0001,
-            "improvement_pct": 0.2
+            "rmse_difference": 0.0002,
+            "improvement_pct": 0.59
           },
           {
             "lead_day": 3,
-            "model_rmse": 0.0381,
+            "model_rmse": 0.0371,
             "persistence_rmse": 0.0387,
-            "rmse_difference": 0.0006,
-            "improvement_pct": 1.51
+            "rmse_difference": 0.0016,
+            "improvement_pct": 4.23
           },
           {
             "lead_day": 4,
-            "model_rmse": 0.0551,
+            "model_rmse": 0.0545,
             "persistence_rmse": 0.0564,
-            "rmse_difference": 0.0013,
-            "improvement_pct": 2.28
+            "rmse_difference": 0.0019,
+            "improvement_pct": 3.44
           },
           {
             "lead_day": 5,
-            "model_rmse": 0.0646,
+            "model_rmse": 0.0643,
             "persistence_rmse": 0.0675,
-            "rmse_difference": 0.003,
-            "improvement_pct": 4.43
+            "rmse_difference": 0.0032,
+            "improvement_pct": 4.81
           },
           {
             "lead_day": 6,
-            "model_rmse": 0.0674,
+            "model_rmse": 0.0672,
             "persistence_rmse": 0.071,
-            "rmse_difference": 0.0035,
-            "improvement_pct": 4.98
+            "rmse_difference": 0.0038,
+            "improvement_pct": 5.38
           },
           {
             "lead_day": 7,
-            "model_rmse": 0.0748,
+            "model_rmse": 0.0744,
             "persistence_rmse": 0.079,
+            "rmse_difference": 0.0046,
+            "improvement_pct": 5.81
+          }
+        ],
+        "season": "Autumn (Freeze-up)"
+      },
+      {
+        "origin_date": "2025-03-15",
+        "nn_used": true,
+        "mean_model_rmse": 0.0514,
+        "mean_persistence_rmse": 0.0536,
+        "mean_rmse_difference": 0.0022,
+        "improvement_pct": 4.16,
+        "alpha_params": [
+          0.4,
+          0.06,
+          2.5
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0204,
+            "persistence_rmse": 0.0204,
+            "rmse_difference": -0.0,
+            "improvement_pct": -0.09
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0301,
+            "persistence_rmse": 0.0303,
+            "rmse_difference": 0.0002,
+            "improvement_pct": 0.68
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0482,
+            "persistence_rmse": 0.0496,
+            "rmse_difference": 0.0014,
+            "improvement_pct": 2.9
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0589,
+            "persistence_rmse": 0.0618,
+            "rmse_difference": 0.0029,
+            "improvement_pct": 4.62
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0625,
+            "persistence_rmse": 0.0657,
+            "rmse_difference": 0.0031,
+            "improvement_pct": 4.78
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0697,
+            "persistence_rmse": 0.0737,
+            "rmse_difference": 0.004,
+            "improvement_pct": 5.38
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.07,
+            "persistence_rmse": 0.0739,
+            "rmse_difference": 0.0039,
+            "improvement_pct": 5.34
+          }
+        ],
+        "season": "Autumn (Freeze-up)"
+      },
+      {
+        "origin_date": "2025-03-16",
+        "nn_used": true,
+        "mean_model_rmse": 0.0517,
+        "mean_persistence_rmse": 0.0537,
+        "mean_rmse_difference": 0.002,
+        "improvement_pct": 3.8,
+        "alpha_params": [
+          0.5,
+          0.06,
+          2.5
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0183,
+            "persistence_rmse": 0.0183,
+            "rmse_difference": -0.0,
+            "improvement_pct": -0.07
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.04,
+            "persistence_rmse": 0.0402,
+            "rmse_difference": 0.0002,
+            "improvement_pct": 0.42
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0517,
+            "persistence_rmse": 0.0533,
+            "rmse_difference": 0.0016,
+            "improvement_pct": 3.02
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0548,
+            "persistence_rmse": 0.0575,
+            "rmse_difference": 0.0027,
+            "improvement_pct": 4.68
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0624,
+            "persistence_rmse": 0.0656,
+            "rmse_difference": 0.0033,
+            "improvement_pct": 4.96
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0654,
+            "persistence_rmse": 0.0677,
+            "rmse_difference": 0.0024,
+            "improvement_pct": 3.49
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.0691,
+            "persistence_rmse": 0.0734,
             "rmse_difference": 0.0042,
-            "improvement_pct": 5.37
+            "improvement_pct": 5.76
           }
         ],
         "season": "Autumn (Freeze-up)"
       },
       {
         "origin_date": "2025-03-17",
-        "mean_model_rmse": 0.0563,
+        "nn_used": true,
+        "mean_model_rmse": 0.0557,
         "mean_persistence_rmse": 0.0584,
-        "mean_rmse_difference": 0.0021,
-        "improvement_pct": 3.57,
+        "mean_rmse_difference": 0.0028,
+        "improvement_pct": 4.72,
         "alpha_params": [
-          0.4,
-          0.028,
-          2.0
+          0.5,
+          0.06,
+          2.5
         ],
         "lead_metrics": [
           {
@@ -1078,59 +2245,60 @@
           },
           {
             "lead_day": 2,
-            "model_rmse": 0.0481,
+            "model_rmse": 0.048,
             "persistence_rmse": 0.0483,
-            "rmse_difference": 0.0001,
-            "improvement_pct": 0.24
+            "rmse_difference": 0.0003,
+            "improvement_pct": 0.56
           },
           {
             "lead_day": 3,
-            "model_rmse": 0.0514,
+            "model_rmse": 0.0498,
             "persistence_rmse": 0.0522,
-            "rmse_difference": 0.0008,
-            "improvement_pct": 1.61
+            "rmse_difference": 0.0024,
+            "improvement_pct": 4.56
           },
           {
             "lead_day": 4,
-            "model_rmse": 0.0585,
+            "model_rmse": 0.0568,
             "persistence_rmse": 0.0608,
-            "rmse_difference": 0.0023,
-            "improvement_pct": 3.83
+            "rmse_difference": 0.004,
+            "improvement_pct": 6.6
           },
           {
             "lead_day": 5,
-            "model_rmse": 0.0609,
+            "model_rmse": 0.0605,
             "persistence_rmse": 0.0638,
-            "rmse_difference": 0.003,
-            "improvement_pct": 4.65
+            "rmse_difference": 0.0033,
+            "improvement_pct": 5.18
           },
           {
             "lead_day": 6,
-            "model_rmse": 0.0656,
+            "model_rmse": 0.0652,
             "persistence_rmse": 0.0693,
-            "rmse_difference": 0.0037,
-            "improvement_pct": 5.29
+            "rmse_difference": 0.0041,
+            "improvement_pct": 5.85
           },
           {
             "lead_day": 7,
-            "model_rmse": 0.0749,
+            "model_rmse": 0.0744,
             "persistence_rmse": 0.0796,
-            "rmse_difference": 0.0047,
-            "improvement_pct": 5.86
+            "rmse_difference": 0.0052,
+            "improvement_pct": 6.56
           }
         ],
         "season": "Autumn (Freeze-up)"
       },
       {
         "origin_date": "2025-07-14",
-        "mean_model_rmse": 0.0682,
+        "nn_used": true,
+        "mean_model_rmse": 0.068,
         "mean_persistence_rmse": 0.068,
-        "mean_rmse_difference": -0.0002,
-        "improvement_pct": -0.34,
+        "mean_rmse_difference": -0.0001,
+        "improvement_pct": -0.13,
         "alpha_params": [
-          0.2,
-          0.028,
-          2.0
+          0.15,
+          0.06,
+          1.0
         ],
         "lead_metrics": [
           {
@@ -1145,56 +2313,252 @@
             "model_rmse": 0.0544,
             "persistence_rmse": 0.0545,
             "rmse_difference": 0.0001,
-            "improvement_pct": 0.11
+            "improvement_pct": 0.2
           },
           {
             "lead_day": 3,
             "model_rmse": 0.066,
             "persistence_rmse": 0.0661,
             "rmse_difference": 0.0001,
-            "improvement_pct": 0.19
+            "improvement_pct": 0.2
           },
           {
             "lead_day": 4,
-            "model_rmse": 0.074,
+            "model_rmse": 0.0739,
             "persistence_rmse": 0.0739,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.1
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0793,
+            "persistence_rmse": 0.0793,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.07
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0833,
+            "persistence_rmse": 0.0831,
+            "rmse_difference": -0.0002,
+            "improvement_pct": -0.21
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.0867,
+            "persistence_rmse": 0.0861,
+            "rmse_difference": -0.0006,
+            "improvement_pct": -0.67
+          }
+        ],
+        "season": "Winter (Maximum Pack)"
+      },
+      {
+        "origin_date": "2025-07-15",
+        "nn_used": true,
+        "mean_model_rmse": 0.0668,
+        "mean_persistence_rmse": 0.0668,
+        "mean_rmse_difference": 0.0,
+        "improvement_pct": 0.04,
+        "alpha_params": [
+          0.2,
+          0.06,
+          1.6
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0372,
+            "persistence_rmse": 0.0372,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.03
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0537,
+            "persistence_rmse": 0.0538,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.22
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0627,
+            "persistence_rmse": 0.063,
+            "rmse_difference": 0.0003,
+            "improvement_pct": 0.45
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0704,
+            "persistence_rmse": 0.0708,
+            "rmse_difference": 0.0004,
+            "improvement_pct": 0.58
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0769,
+            "persistence_rmse": 0.0772,
+            "rmse_difference": 0.0003,
+            "improvement_pct": 0.41
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0818,
+            "persistence_rmse": 0.0818,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.02
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.085,
+            "persistence_rmse": 0.0841,
+            "rmse_difference": -0.0009,
+            "improvement_pct": -1.13
+          }
+        ],
+        "season": "Winter (Maximum Pack)"
+      },
+      {
+        "origin_date": "2025-07-16",
+        "nn_used": true,
+        "mean_model_rmse": 0.0656,
+        "mean_persistence_rmse": 0.0659,
+        "mean_rmse_difference": 0.0003,
+        "improvement_pct": 0.39,
+        "alpha_params": [
+          0.2,
+          0.06,
+          1.8
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0367,
+            "persistence_rmse": 0.0367,
             "rmse_difference": -0.0,
             "improvement_pct": -0.04
           },
           {
+            "lead_day": 2,
+            "model_rmse": 0.0498,
+            "persistence_rmse": 0.0499,
+            "rmse_difference": 0.0002,
+            "improvement_pct": 0.31
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0588,
+            "persistence_rmse": 0.0596,
+            "rmse_difference": 0.0009,
+            "improvement_pct": 1.46
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0679,
+            "persistence_rmse": 0.0689,
+            "rmse_difference": 0.001,
+            "improvement_pct": 1.47
+          },
+          {
             "lead_day": 5,
-            "model_rmse": 0.0794,
-            "persistence_rmse": 0.0793,
-            "rmse_difference": -0.0001,
-            "improvement_pct": -0.14
+            "model_rmse": 0.0744,
+            "persistence_rmse": 0.0752,
+            "rmse_difference": 0.0008,
+            "improvement_pct": 1.1
           },
           {
             "lead_day": 6,
-            "model_rmse": 0.0836,
-            "persistence_rmse": 0.0831,
-            "rmse_difference": -0.0005,
-            "improvement_pct": -0.58
+            "model_rmse": 0.0817,
+            "persistence_rmse": 0.0817,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.0
           },
           {
             "lead_day": 7,
-            "model_rmse": 0.0872,
-            "persistence_rmse": 0.0861,
+            "model_rmse": 0.0901,
+            "persistence_rmse": 0.0892,
+            "rmse_difference": -0.0009,
+            "improvement_pct": -1.0
+          }
+        ],
+        "season": "Winter (Maximum Pack)"
+      },
+      {
+        "origin_date": "2025-07-17",
+        "nn_used": true,
+        "mean_model_rmse": 0.0638,
+        "mean_persistence_rmse": 0.0638,
+        "mean_rmse_difference": 0.0,
+        "improvement_pct": 0.02,
+        "alpha_params": [
+          0.15,
+          0.06,
+          1.4
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0273,
+            "persistence_rmse": 0.0273,
+            "rmse_difference": -0.0,
+            "improvement_pct": -0.04
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0424,
+            "persistence_rmse": 0.0427,
+            "rmse_difference": 0.0003,
+            "improvement_pct": 0.66
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0549,
+            "persistence_rmse": 0.0557,
+            "rmse_difference": 0.0008,
+            "improvement_pct": 1.35
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.064,
+            "persistence_rmse": 0.0646,
+            "rmse_difference": 0.0006,
+            "improvement_pct": 1.0
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0727,
+            "persistence_rmse": 0.0728,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.06
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.086,
+            "persistence_rmse": 0.0854,
+            "rmse_difference": -0.0006,
+            "improvement_pct": -0.71
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.0991,
+            "persistence_rmse": 0.098,
             "rmse_difference": -0.0011,
-            "improvement_pct": -1.27
+            "improvement_pct": -1.11
           }
         ],
         "season": "Winter (Maximum Pack)"
       },
       {
         "origin_date": "2025-07-18",
-        "mean_model_rmse": 0.0694,
+        "nn_used": true,
+        "mean_model_rmse": 0.069,
         "mean_persistence_rmse": 0.0681,
-        "mean_rmse_difference": -0.0013,
-        "improvement_pct": -1.91,
+        "mean_rmse_difference": -0.0009,
+        "improvement_pct": -1.36,
         "alpha_params": [
-          0.2,
-          0.028,
-          2.0
+          0.15,
+          0.06,
+          1.4
         ],
         "lead_metrics": [
           {
@@ -1209,56 +2573,57 @@
             "model_rmse": 0.0465,
             "persistence_rmse": 0.0465,
             "rmse_difference": 0.0,
-            "improvement_pct": 0.04
+            "improvement_pct": 0.06
           },
           {
             "lead_day": 3,
-            "model_rmse": 0.0587,
+            "model_rmse": 0.0588,
             "persistence_rmse": 0.0585,
-            "rmse_difference": -0.0002,
-            "improvement_pct": -0.3
+            "rmse_difference": -0.0003,
+            "improvement_pct": -0.46
           },
           {
             "lead_day": 4,
-            "model_rmse": 0.0692,
+            "model_rmse": 0.0688,
             "persistence_rmse": 0.0679,
-            "rmse_difference": -0.0013,
-            "improvement_pct": -1.92
+            "rmse_difference": -0.0009,
+            "improvement_pct": -1.33
           },
           {
             "lead_day": 5,
-            "model_rmse": 0.0841,
+            "model_rmse": 0.0835,
             "persistence_rmse": 0.0819,
-            "rmse_difference": -0.0022,
-            "improvement_pct": -2.7
+            "rmse_difference": -0.0016,
+            "improvement_pct": -1.92
           },
           {
             "lead_day": 6,
-            "model_rmse": 0.0984,
+            "model_rmse": 0.0976,
             "persistence_rmse": 0.0957,
-            "rmse_difference": -0.0027,
-            "improvement_pct": -2.85
+            "rmse_difference": -0.0019,
+            "improvement_pct": -2.03
           },
           {
             "lead_day": 7,
-            "model_rmse": 0.0994,
+            "model_rmse": 0.0985,
             "persistence_rmse": 0.0966,
-            "rmse_difference": -0.0028,
-            "improvement_pct": -2.85
+            "rmse_difference": -0.0019,
+            "improvement_pct": -2.02
           }
         ],
         "season": "Winter (Maximum Pack)"
       },
       {
         "origin_date": "2025-10-14",
+        "nn_used": true,
         "mean_model_rmse": 0.0586,
         "mean_persistence_rmse": 0.0587,
-        "mean_rmse_difference": 0.0001,
-        "improvement_pct": 0.17,
+        "mean_rmse_difference": 0.0,
+        "improvement_pct": 0.07,
         "alpha_params": [
-          0.2,
-          0.01,
-          1.0
+          0.05,
+          0.002,
+          0.5
         ],
         "lead_metrics": [
           {
@@ -1273,56 +2638,252 @@
             "model_rmse": 0.0414,
             "persistence_rmse": 0.0415,
             "rmse_difference": 0.0,
-            "improvement_pct": 0.08
+            "improvement_pct": 0.05
           },
           {
             "lead_day": 3,
-            "model_rmse": 0.0533,
+            "model_rmse": 0.0534,
             "persistence_rmse": 0.0534,
-            "rmse_difference": 0.0001,
-            "improvement_pct": 0.11
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.06
           },
           {
             "lead_day": 4,
             "model_rmse": 0.0617,
             "persistence_rmse": 0.0617,
-            "rmse_difference": 0.0001,
-            "improvement_pct": 0.16
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.08
           },
           {
             "lead_day": 5,
             "model_rmse": 0.0715,
             "persistence_rmse": 0.0716,
-            "rmse_difference": 0.0001,
-            "improvement_pct": 0.13
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.03
           },
           {
             "lead_day": 6,
-            "model_rmse": 0.0762,
+            "model_rmse": 0.0763,
             "persistence_rmse": 0.0763,
-            "rmse_difference": 0.0001,
-            "improvement_pct": 0.17
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.02
           },
           {
             "lead_day": 7,
-            "model_rmse": 0.0817,
+            "model_rmse": 0.0819,
             "persistence_rmse": 0.082,
-            "rmse_difference": 0.0003,
-            "improvement_pct": 0.36
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.07
+          }
+        ],
+        "season": "Spring (Retreat / Breakup)"
+      },
+      {
+        "origin_date": "2025-10-15",
+        "nn_used": true,
+        "mean_model_rmse": 0.0576,
+        "mean_persistence_rmse": 0.0577,
+        "mean_rmse_difference": 0.0,
+        "improvement_pct": 0.07,
+        "alpha_params": [
+          0.05,
+          0.002,
+          0.5
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0283,
+            "persistence_rmse": 0.0283,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.04
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0422,
+            "persistence_rmse": 0.0422,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.06
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0513,
+            "persistence_rmse": 0.0514,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.07
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0624,
+            "persistence_rmse": 0.0625,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.03
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0677,
+            "persistence_rmse": 0.0677,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.02
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0749,
+            "persistence_rmse": 0.0749,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.07
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.0767,
+            "persistence_rmse": 0.0768,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.13
+          }
+        ],
+        "season": "Spring (Retreat / Breakup)"
+      },
+      {
+        "origin_date": "2025-10-16",
+        "nn_used": true,
+        "mean_model_rmse": 0.0548,
+        "mean_persistence_rmse": 0.0548,
+        "mean_rmse_difference": 0.0,
+        "improvement_pct": 0.0,
+        "alpha_params": [
+          0.05,
+          0.002,
+          0.5
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0264,
+            "persistence_rmse": 0.0264,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.02
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0388,
+            "persistence_rmse": 0.0388,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.05
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0519,
+            "persistence_rmse": 0.0519,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.0
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0592,
+            "persistence_rmse": 0.0591,
+            "rmse_difference": -0.0,
+            "improvement_pct": -0.0
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0672,
+            "persistence_rmse": 0.0672,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.04
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0693,
+            "persistence_rmse": 0.0693,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.08
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.0707,
+            "persistence_rmse": 0.0708,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.08
+          }
+        ],
+        "season": "Spring (Retreat / Breakup)"
+      },
+      {
+        "origin_date": "2025-10-17",
+        "nn_used": true,
+        "mean_model_rmse": 0.0531,
+        "mean_persistence_rmse": 0.0531,
+        "mean_rmse_difference": 0.0001,
+        "improvement_pct": 0.11,
+        "alpha_params": [
+          0.05,
+          0.002,
+          0.5
+        ],
+        "lead_metrics": [
+          {
+            "lead_day": 1,
+            "model_rmse": 0.0297,
+            "persistence_rmse": 0.0297,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.01
+          },
+          {
+            "lead_day": 2,
+            "model_rmse": 0.0412,
+            "persistence_rmse": 0.0412,
+            "rmse_difference": -0.0,
+            "improvement_pct": -0.02
+          },
+          {
+            "lead_day": 3,
+            "model_rmse": 0.0506,
+            "persistence_rmse": 0.0506,
+            "rmse_difference": -0.0,
+            "improvement_pct": -0.02
+          },
+          {
+            "lead_day": 4,
+            "model_rmse": 0.0593,
+            "persistence_rmse": 0.0594,
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.04
+          },
+          {
+            "lead_day": 5,
+            "model_rmse": 0.0614,
+            "persistence_rmse": 0.0615,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.1
+          },
+          {
+            "lead_day": 6,
+            "model_rmse": 0.0634,
+            "persistence_rmse": 0.0635,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.11
+          },
+          {
+            "lead_day": 7,
+            "model_rmse": 0.066,
+            "persistence_rmse": 0.0661,
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.12
           }
         ],
         "season": "Spring (Retreat / Breakup)"
       },
       {
         "origin_date": "2025-10-18",
-        "mean_model_rmse": 0.0528,
+        "nn_used": true,
+        "mean_model_rmse": 0.053,
         "mean_persistence_rmse": 0.053,
-        "mean_rmse_difference": 0.0002,
-        "improvement_pct": 0.38,
+        "mean_rmse_difference": 0.0,
+        "improvement_pct": 0.05,
         "alpha_params": [
-          0.2,
-          0.01,
-          1.0
+          0.05,
+          0.002,
+          0.5
         ],
         "lead_metrics": [
           {
@@ -1337,42 +2898,42 @@
             "model_rmse": 0.0425,
             "persistence_rmse": 0.0425,
             "rmse_difference": -0.0,
-            "improvement_pct": -0.01
+            "improvement_pct": -0.06
           },
           {
             "lead_day": 3,
-            "model_rmse": 0.0538,
+            "model_rmse": 0.0539,
             "persistence_rmse": 0.0539,
-            "rmse_difference": 0.0001,
-            "improvement_pct": 0.09
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.0
           },
           {
             "lead_day": 4,
-            "model_rmse": 0.0581,
+            "model_rmse": 0.0582,
             "persistence_rmse": 0.0582,
-            "rmse_difference": 0.0001,
-            "improvement_pct": 0.25
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.06
           },
           {
             "lead_day": 5,
-            "model_rmse": 0.0613,
+            "model_rmse": 0.0615,
             "persistence_rmse": 0.0616,
-            "rmse_difference": 0.0002,
-            "improvement_pct": 0.36
+            "rmse_difference": 0.0,
+            "improvement_pct": 0.08
           },
           {
             "lead_day": 6,
-            "model_rmse": 0.0602,
+            "model_rmse": 0.0605,
             "persistence_rmse": 0.0605,
-            "rmse_difference": 0.0004,
-            "improvement_pct": 0.63
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.11
           },
           {
             "lead_day": 7,
-            "model_rmse": 0.0627,
+            "model_rmse": 0.0632,
             "persistence_rmse": 0.0633,
-            "rmse_difference": 0.0005,
-            "improvement_pct": 0.81
+            "rmse_difference": 0.0001,
+            "improvement_pct": 0.11
           }
         ],
         "season": "Spring (Retreat / Breakup)"
@@ -1595,5 +3156,5 @@
       "mgo_fuel_100nm_open_water_mt": 5.15
     }
   },
-  "timestamp_utc": "2026-10-03T07:32:06Z"
+  "timestamp_utc": "2026-10-03T07:54:39Z"
 }

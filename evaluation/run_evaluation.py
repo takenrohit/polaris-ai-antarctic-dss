@@ -561,15 +561,15 @@ Evaluated against the standard Persistence Baseline and Climatology across 1-to-
 
 To establish a legitimate significance claim free from the pseudoreplication of spatial pixel tests, the system was evaluated via **rolling-origin cross-validation** across multiple months and seasons using historical NOAA/NSIDC G02135 daily satellite observations acquired via `live_fetch`.
 
-Because sequential forecast origins exhibit temporal autocorrelation and overlapping verification horizons, an assumption-free **Moving Block Bootstrap** (block length $B = {boot.get('block_size', 3)}$ origins, $N_{{boot}} = {boot.get('n_bootstrap', 1000)}$) was computed over chronological forecast origins:
+Because sequential daily forecast origins exhibit temporal autocorrelation, statistical inference is evaluated via a **Whole-Season Block Bootstrap** ($N_{{boot}} = {boot.get('n_bootstrap', 1000)}$ resamples of whole seasonal blocks with replacement):
 
-- **Total Forecast Origins Evaluated:** **{rolling_res['total_origins_evaluated']} origins** spanning Austral Summer, Autumn Freeze-up, Winter Pack, and Spring Retreat
+- **Total Forecast Origins Evaluated:** **{rolling_res['total_origins_evaluated']} daily origins** across {rolling_res.get('seasonal_blocks_count', 4)} contiguous seasonal blocks
 - **Overall Model Mean RMSE:** **{rolling_res['overall_avg_model_rmse']:.4f}** vs Persistence: **{rolling_res['overall_avg_persistence_rmse']:.4f}** ({rolling_res['overall_improvement_pct']:+.2f}%)
-- **Block-Bootstrap 95% Confidence Interval on $\\Delta$RMSE:** **[{boot.get('ci_95_lower', 0.0):+.4f}, {boot.get('ci_95_upper', 0.0):+.4f}]** ($p = {boot.get('p_value', 0.50):.3f}$)
+- **Whole-Season Block Bootstrap 95% Confidence Interval on $\\Delta$RMSE:** **[{boot.get('ci_95_lower', 0.0):+.4f}, {boot.get('ci_95_upper', 0.0):+.4f}]** ($p = {boot.get('p_value', 0.50):.3f}$)
 - **Statistical Significance Verdict:** The 95% Confidence Interval encompasses zero across the full multi-season annual cycle. The model does **not** demonstrate statistically significant superiority across all seasons when trained solely on January summer melt.
 
 ### Multi-Season Seasonal Breakdown (Per-Origin-Block):
-| Seasonal Origin Block | Window | Origins ($N$) | Hybrid Model RMSE | Persistence RMSE | $\\Delta$RMSE | Gain ($\\Delta$\%) |
+| Seasonal Origin Block | Window | Origins ($N$) | Hybrid Model RMSE | Persistence RMSE | $\\Delta$RMSE | Gain ($\\Delta$%) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
 """
         for s_name, s_data in rolling_res.get("seasonal_breakdown", {}).items():
@@ -578,11 +578,15 @@ Because sequential forecast origins exhibit temporal autocorrelation and overlap
 
         md += f"""
 ### Per-Origin-Block Operational Observations:
-- **Summer (Held-Out Melt, Jan 15–28, 2026):** Evaluated strictly on origins after Jan 14 (held out from training/calibration). Demonstrates positive gains from kinematic wind advection (+3.42% avg RMSE gain).
-- **Autumn (Freeze-up, Mar 1–24, 2025):** Dynamic alpha fitting captures initial freeze conditions, yielding modest advection gains (+3.55% avg RMSE gain).
-- **Winter (Maximum Pack, Jul 1–25, 2025):** Consolidated pack ice undergoes minimal deformation; persistence baseline is strong, and advection introduces minor noise (-1.13% avg RMSE).
-- **Spring (Retreat / Breakup, Oct 1–25, 2025):** Early marginal retreat shows minor positive gains (+0.28% avg RMSE gain).
-- **Overall Verdict:** Across the multi-season cycle, the hybrid model achieves a modest +1.57% mean RMSE improvement over persistence, but the 95% Block Bootstrap confidence interval spans zero ([{boot.get('ci_95_lower', 0.0):+.4f}, {boot.get('ci_95_upper', 0.0):+.4f}], p = {boot.get('p_value', 0.09):.3f} >= 0.05). Consistent with Section 1, the forecast is not statistically significantly different from persistence. Retraining across all four seasons would allow the neural residual network to learn freeze-up and consolidated pack regimes rather than being optimized solely for January summer melt.
+"""
+        for s_name, s_data in rolling_res.get("seasonal_breakdown", {}).items():
+            imp = s_data['improvement_pct']
+            window_str = s_data.get('block_window', '')
+            n_orig = s_data.get('origin_count', 0)
+            md += f"- **{s_name} ({window_str}, N={n_orig}):** Average model RMSE {s_data['avg_model_rmse']:.4f} vs persistence {s_data['avg_persistence_rmse']:.4f} (**{imp:+.2f}%** gain).\n"
+
+        md += f"""- **Model Architecture Finding:** Neural residual weighting is small (NN_WEIGHT = 0.02, `nn_used: True`); the hybrid forecaster's skill and RMSE improvements over persistence are predominantly driven by physics-guided kinematic wind advection and antecedent thermodynamic melt/freeze trends rather than raw neural regression.
+- **Overall Annual Verdict:** Across all {rolling_res.get('total_origins_evaluated', 21)} evaluated forecast origins, whole-season block bootstrap yields a 95% Confidence Interval on $\\Delta$RMSE of [{boot.get('ci_95_lower', 0.0):+.4f}, {boot.get('ci_95_upper', 0.0):+.4f}] ($p = {boot.get('p_value', 0.50):.3f}$). Because the confidence interval encompasses zero, the hybrid model forecast is not statistically significantly different from persistence across the multi-season cycle ($p \\ge 0.05$).
 """
 
     md += f"""

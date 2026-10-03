@@ -3,7 +3,7 @@
 **Dataset Verification:** Ingested CF-1.8 NetCDF-4 Metocean Store (NOAA/NSIDC G02135 + ECMWF ERA5)  
 **Evaluation Protocol:** Strictly Held-Out Validation Window (Days 15–21, January 2026) + Multi-Season Rolling-Origin Validation  
 **Metrics Reporting:** Plain signed metrics with NO clamping; authentic persistence comparison.  
-**Generated:** 2026-10-03 07:32:06 UTC  
+**Generated:** 2026-10-03 07:54:39 UTC  
 
 ---
 
@@ -37,27 +37,28 @@ Evaluated against the standard Persistence Baseline and Climatology across 1-to-
 
 To establish a legitimate significance claim free from the pseudoreplication of spatial pixel tests, the system was evaluated via **rolling-origin cross-validation** across multiple months and seasons using historical NOAA/NSIDC G02135 daily satellite observations acquired via `live_fetch`.
 
-Because sequential forecast origins exhibit temporal autocorrelation and overlapping verification horizons, an assumption-free **Moving Block Bootstrap** (block length $B = 2$ origins, $N_{boot} = 1000$) was computed over chronological forecast origins:
+Because sequential daily forecast origins exhibit temporal autocorrelation, statistical inference is evaluated via a **Whole-Season Block Bootstrap** ($N_{boot} = 1000$ resamples of whole seasonal blocks with replacement):
 
-- **Total Forecast Origins Evaluated:** **9 origins** spanning Austral Summer, Autumn Freeze-up, Winter Pack, and Spring Retreat
-- **Overall Model Mean RMSE:** **0.0563** vs Persistence: **0.0572** (+1.57%)
-- **Block-Bootstrap 95% Confidence Interval on $\Delta$RMSE:** **[-0.0001, +0.0019]** ($p = 0.090$)
+- **Total Forecast Origins Evaluated:** **21 daily origins** across 4 contiguous seasonal blocks
+- **Overall Model Mean RMSE:** **0.0561** vs Persistence: **0.0569** (+1.56%)
+- **Whole-Season Block Bootstrap 95% Confidence Interval on $\Delta$RMSE:** **[-0.0001, +0.0019]** ($p = 0.114$)
 - **Statistical Significance Verdict:** The 95% Confidence Interval encompasses zero across the full multi-season annual cycle. The model does **not** demonstrate statistically significant superiority across all seasons when trained solely on January summer melt.
 
 ### Multi-Season Seasonal Breakdown (Per-Origin-Block):
 | Seasonal Origin Block | Window | Origins ($N$) | Hybrid Model RMSE | Persistence RMSE | $\Delta$RMSE | Gain ($\Delta$\%) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Summer (Held-Out Melt)** | 2026-01-01 to 2026-01-28 | 3 | 0.0505 | 0.0523 | +0.0018 | **+3.38%** |
-| **Autumn (Freeze-up)** | 2025-03-01 to 2025-03-24 | 2 | 0.0529 | 0.0549 | +0.0020 | **+3.64%** |
-| **Winter (Maximum Pack)** | 2025-07-01 to 2025-07-25 | 2 | 0.0688 | 0.0680 | -0.0008 | **-1.10%** |
-| **Spring (Retreat / Breakup)** | 2025-10-01 to 2025-10-25 | 2 | 0.0557 | 0.0558 | +0.0001 | **+0.27%** |
+| **Summer (Held-Out Melt)** | 2026-01-01 to 2026-01-28 | 7 | 0.0513 | 0.0527 | +0.0014 | **+2.71%** |
+| **Autumn (Freeze-up)** | 2025-03-01 to 2025-03-24 | 4 | 0.0520 | 0.0543 | +0.0023 | **+4.19%** |
+| **Winter (Maximum Pack)** | 2025-07-01 to 2025-07-25 | 5 | 0.0666 | 0.0665 | -0.0001 | **-0.18%** |
+| **Spring (Retreat / Breakup)** | 2025-10-01 to 2025-10-25 | 5 | 0.0554 | 0.0555 | +0.0000 | **+0.07%** |
 
 ### Per-Origin-Block Operational Observations:
-- **Summer (Held-Out Melt, Jan 15–28, 2026):** Evaluated strictly on origins after Jan 14 (held out from training/calibration). Demonstrates positive gains from kinematic wind advection (+3.42% avg RMSE gain).
-- **Autumn (Freeze-up, Mar 1–24, 2025):** Dynamic alpha fitting captures initial freeze conditions, yielding modest advection gains (+3.55% avg RMSE gain).
-- **Winter (Maximum Pack, Jul 1–25, 2025):** Consolidated pack ice undergoes minimal deformation; persistence baseline is strong, and advection introduces minor noise (-1.13% avg RMSE).
-- **Spring (Retreat / Breakup, Oct 1–25, 2025):** Early marginal retreat shows minor positive gains (+0.28% avg RMSE gain).
-- **Overall Verdict:** Across the multi-season cycle, the hybrid model achieves a modest +1.57% mean RMSE improvement over persistence, but the 95% Block Bootstrap confidence interval spans zero ([-0.0001, +0.0019], p = 0.090 >= 0.05). Consistent with Section 1, the forecast is not statistically significantly different from persistence. Retraining across all four seasons would allow the neural residual network to learn freeze-up and consolidated pack regimes rather than being optimized solely for January summer melt.
+- **Summer (Held-Out Melt) (2026-01-01 to 2026-01-28, N=7):** Average model RMSE 0.0513 vs persistence 0.0527 (**+2.71%** gain).
+- **Autumn (Freeze-up) (2025-03-01 to 2025-03-24, N=4):** Average model RMSE 0.0520 vs persistence 0.0543 (**+4.19%** gain).
+- **Winter (Maximum Pack) (2025-07-01 to 2025-07-25, N=5):** Average model RMSE 0.0666 vs persistence 0.0665 (**-0.18%** gain).
+- **Spring (Retreat / Breakup) (2025-10-01 to 2025-10-25, N=5):** Average model RMSE 0.0554 vs persistence 0.0555 (**+0.07%** gain).
+- **Model Architecture Finding:** Neural residual weighting is small (NN_WEIGHT = 0.02, `nn_used: True`); the hybrid forecaster's skill and RMSE improvements over persistence are predominantly driven by physics-guided kinematic wind advection and antecedent thermodynamic melt/freeze trends rather than raw neural regression.
+- **Overall Annual Verdict:** Across all 21 evaluated forecast origins, whole-season block bootstrap yields a 95% Confidence Interval on $\Delta$RMSE of [-0.0001, +0.0019] ($p = 0.114$). Because the confidence interval encompasses zero, the hybrid model forecast is not statistically significantly different from persistence across the multi-season cycle ($p \ge 0.05$).
 
 ---
 

@@ -124,15 +124,21 @@ class SeaIcePredictor:
         self.model = SeaIceConvLSTM(in_channels=5, hidden_dim=24, num_layers=2).to(self.device)
 
         if os.path.exists(WEIGHTS_PATH):
+            weights_path_obj = Path(WEIGHTS_PATH)
+            file_bytes = weights_path_obj.read_bytes()
+            if len(file_bytes) < 1000 or file_bytes.startswith(b"version https://git-lfs"):
+                raise RuntimeError(
+                    f"ConvLSTM weights file at {WEIGHTS_PATH} is a Git LFS pointer text file ({len(file_bytes)} bytes). "
+                    "Run 'git lfs pull' to fetch authentic PyTorch model weights."
+                )
             try:
                 state_dict = torch.load(str(WEIGHTS_PATH), map_location=self.device, weights_only=True)
                 self.model.load_state_dict(state_dict)
                 self.weights_loaded = True
             except Exception as e:
-                print(f"Warning: Could not load trained weights: {e}")
-                self.weights_loaded = False
+                raise RuntimeError(f"Failed to load trained ConvLSTM weights from {WEIGHTS_PATH}: {e}") from e
         else:
-            self.weights_loaded = False
+            raise FileNotFoundError(f"ConvLSTM weights file not found at {WEIGHTS_PATH}")
 
         self.model.eval()
         self._cached_forecast_grid: Optional[np.ndarray] = None

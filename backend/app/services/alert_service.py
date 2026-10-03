@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from ..data.ingestion import environmental_data_provider
 from .iceberg_service import iceberg_service
+from .vessel_service import vessel_service
 
 logger = logging.getLogger(__name__)
 
@@ -184,8 +185,9 @@ class AlertService:
                 ),
                 "coordinates": {"lat": bharati_lat, "lon": bharati_lon},
                 "recommended_action": (
-                    "Comply with IMO Polar Code Chapter 6 operational guidelines: calculate daily "
-                    "vessel-specific POLARIS Risk Index Outcome (RIO) before proceeding into ice regimes; "
+                    "Comply with IMO Polar Code Chapter 9 (Safety of Navigation) and Chapter 11 "
+                    "(Voyage Planning) operational guidelines: calculate daily vessel-specific "
+                    "POLARIS Risk Index Outcome (RIO) before proceeding into ice regimes; "
                     "maintain dedicated bridge ice watch and adjust speed in pack-compaction zones."
                 ),
                 "is_live": b_is_live,
@@ -198,88 +200,124 @@ class AlertService:
             })
 
         # ------------------------------------------------------------------- #
-        # Rule 3: Iceberg Tracking & Distance-to-Route Advisory
+        # Rule 3: Iceberg Tracking & Distance-to-Route Leg Advisory
         # ------------------------------------------------------------------- #
-        # Primary expedition corridor waypoints (Cape Town -> Southern Ocean -> Bharati / Maitri)
-        EXPEDITION_ROUTE_WAYPOINTS = [
+        # Separate maritime navigation corridors (prevents overland interpolation)
+        CORRIDOR_BHARATI = [
             (-33.918, 18.423),  # Port of Cape Town
             (-45.0, 35.0),      # Sub-Antarctic crossing
             (-55.0, 52.0),      # Polar Front
             (-62.0, 65.0),      # Marginal Ice Zone boundary
             (-67.45, 72.80),    # Vessel operating sector (MV Vasiliy Golovnin)
-            (-69.407, 76.187),  # Bharati Station
-            (-70.767, 11.733),  # Maitri Station
+            (-69.407, 76.187),  # Bharati Station (Prydz Bay)
+        ]
+        CORRIDOR_MAITRI = [
+            (-33.918, 18.423),  # Port of Cape Town
+            (-45.0, 20.0),      # Sub-Antarctic crossing
+            (-55.0, 15.0),      # Polar Front
+            (-62.0, 12.0),      # Marginal Ice Zone boundary
+            (-68.0, 11.8),      # Princess Astrid Coast approach
+            (-70.767, 11.733),  # Maitri Station (Queen Maud Land)
         ]
 
+        def _dist_to_corridor_legs(b_lat: float, b_lon: float, corridor: List[Tuple[float, float]], num_samples: int = 30) -> float:
+            min_d = float("inf")
+            for i in range(len(corridor) - 1):
+                lat1, lon1 = corridor[i]
+                lat2, lon2 = corridor[i + 1]
+                dlon = (lon2 - lon1 + 180.0) % 360.0 - 180.0
+                for s in range(num_samples + 1):
+                    frac = s / float(num_samples)
+                    p_lat = lat1 + frac * (lat2 - lat1)
+                    p_lon = ((lon1 + frac * dlon + 180.0) % 360.0) - 180.0
+                    d = _haversine_nm(b_lat, b_lon, p_lat, p_lon)
+                    if d < min_d:
+                        min_d = d
+            return min_d
+
         all_bergs = iceberg_service.list_icebergs()
+        fleet_vessels = vessel_service.list_vessels()
+
         if all_bergs:
-            # Measure distance from each berg to the nearest route corridor waypoint
-            def _berg_dist_to_route(b: Dict[str, Any]) -> float:
+            for berg in all_bergs:
                 try:
-                    b_lat, b_lon = float(b["lat"]), float(b["lon"])
-                    return min(_haversine_nm(b_lat, b_lon, wp_lat, wp_lon) for wp_lat, wp_lon in EXPEDITION_ROUTE_WAYPOINTS)
-                except Exception:
-                    return 99999.0
+                    b_lat = float(berg["lat"])
+                    b_lon = float(berg["lon"])
+                except (KeyvalueError, TypeError, ValueError):
+                    continue
 
-            # Select the iceberg posing the closest navigational hazard to active corridors
-            target_berg = min(all_bergs, key=_berg_dist_to_route)
-            min_dist_nm = _berg_dist_to_route(target_berg)
+                d_bharati = _dist_to_corridor_legs(b_lat, b_lon, CORRIDOR_BHARATI)
+                d_maitri = _dist_to_corridor_legs(b_lat, b_lon, CORRIDOR_MAITRI)
+                min_corr_dist = min(d_bharati, d_maitri)
+                corr_name = "Bharati Corridor" if d_bharati <= d_maitri else "Maitri Corridor"
 
-            # Fire alert based strictly on distance to route rule:
-            # - <= 30 NM: CRITICAL (within IMO navigation standoff buffer)
-            # - <= 100 NM: WARNING (within precautionary radar surveillance zone)
-            if min_dist_nm <= 100.0:
-                berg_is_live = bool(target_berg.get("is_live"))
-                if berg_is_live:
-                    tracking_note = (
-                        f"Live satellite scatterometer fix (DOY {target_berg.get('observation_doy', 'no data')}, "
-                        f"Source: {target_berg.get('surveillance_source', 'BYU/ASCAT')})."
-                    )
-                else:
-                    tracking_note = (
-                        "Historical BYU/USNIC consolidated archive fix."
-                        + (" Note: A-23a is not currently listed on the active BYU near-real-time scatterometer feed."
-                           if target_berg.get("id") == "A-23a" else "")
-                    )
+                # Measure distance to dynamic live fleet vessel positions (not hard-coded)
+                vessel_dists = []
+                for v in fleet_vessels:
+                    pos = v.get("current_position", {})
+                    if "lat" in pos and "lon" in pos:
+                        v_dist = _haversine_nm(b_lat, b_lon, float(pos["lat"]), float(pos["lon"]))
+                        vessel_dists.append((v["name"], v_dist))
 
-                b_lat = float(target_berg["lat"])
-                b_lon = float(target_berg["lon"])
-                area_val = target_berg.get("area_km2")
-                area_str = f"{area_val:,.0f} km²" if area_val is not None else "no data"
-                severity = "CRITICAL" if min_dist_nm <= 30.0 else "WARNING"
+                closest_vessel_name, min_vessel_dist = (
+                    min(vessel_dists, key=lambda x: x[1]) if vessel_dists else ("Fleet Vessel", 99999.0)
+                )
 
-                alerts.append({
-                    "id": f"ALERT-POLARIS-BERG-{target_berg['id']}",
-                    "timestamp": now_iso,
-                    "severity": severity,
-                    "source": "POLARIS Rule Engine (illustrative scenario alert, not an official bulletin)",
-                    "is_official_bulletin": False,
-                    "disclaimer": DISCLAIMER_TEXT,
-                    "title": f"TABULAR ICEBERG ADVISORY: {target_berg['name'].upper()} ({severity})",
-                    "description": (
-                        f"Iceberg {target_berg['id']} ({area_str}) located at "
-                        f"{abs(b_lat):.2f}°{'S' if b_lat < 0 else 'N'}, "
-                        f"{abs(b_lon):.2f}°{'W' if b_lon < 0 else 'E'} — "
-                        f"measured {min_dist_nm:.1f} NM from active expedition navigation corridor. "
-                        f"{tracking_note} Calved growlers and bergy bits possible within stand-off zone."
-                    ),
-                    "coordinates": {"lat": b_lat, "lon": b_lon},
-                    "recommended_action": (
-                        f"Maintain minimum 30 NM stand-off in accordance with IMO Polar Code guidelines "
-                        f"(current clearance: {min_dist_nm:.1f} NM); keep continuous forward radar watch "
-                        f"and searchlight readiness in poor visibility."
-                    ),
-                    "is_live": berg_is_live,
-                    "trigger_metrics": {
-                        "iceberg_id": target_berg["id"],
-                        "lat": b_lat,
-                        "lon": b_lon,
-                        "area_km2": area_val if area_val is not None else "no data",
-                        "distance_to_route_nm": round(min_dist_nm, 1),
-                        "standoff_threshold_nm": 30.0,
-                        "is_live_track": berg_is_live
-                    }
-                })
+                # Fire alert if within precautionary surveillance zone (<= 100 NM) of a route leg or vessel
+                effective_hazard_dist = min(min_corr_dist, min_vessel_dist)
+                if effective_hazard_dist <= 100.0:
+                    berg_is_live = bool(berg.get("is_live"))
+                    if berg_is_live:
+                        tracking_note = (
+                            f"Live satellite scatterometer fix (DOY {berg.get('observation_doy', 'no data')}, "
+                            f"Source: {berg.get('surveillance_source', 'BYU/ASCAT')})."
+                        )
+                    else:
+                        tracking_note = (
+                            "Historical BYU/USNIC consolidated archive fix."
+                            + (" Note: A-23a is not currently listed on the active BYU near-real-time scatterometer feed."
+                               if berg.get("id") == "A-23a" else "")
+                        )
+
+                    area_val = berg.get("area_km2")
+                    area_str = f"{area_val:,.0f} km²" if area_val is not None else "no data"
+                    severity = "CRITICAL" if effective_hazard_dist <= 30.0 else "WARNING"
+
+                    alerts.append({
+                        "id": f"ALERT-POLARIS-BERG-{berg['id']}",
+                        "timestamp": now_iso,
+                        "severity": severity,
+                        "source": "POLARIS Rule Engine (illustrative scenario alert, not an official bulletin)",
+                        "is_official_bulletin": False,
+                        "disclaimer": DISCLAIMER_TEXT,
+                        "title": f"TABULAR ICEBERG ADVISORY: {berg['name'].upper()} ({severity})",
+                        "description": (
+                            f"Iceberg {berg['id']} ({area_str}) located at "
+                            f"{abs(b_lat):.2f}°{'S' if b_lat < 0 else 'N'}, "
+                            f"{abs(b_lon):.2f}°{'W' if b_lon < 0 else 'E'} — "
+                            f"measured {min_corr_dist:.1f} NM from active {corr_name} leg and "
+                            f"{min_vessel_dist:.1f} NM from {closest_vessel_name}. "
+                            f"{tracking_note} Calved growlers and bergy bits possible within stand-off zone."
+                        ),
+                        "coordinates": {"lat": b_lat, "lon": b_lon},
+                        "recommended_action": (
+                            f"Comply with IMO Polar Code Chapter 9 (Safety of Navigation) and Chapter 11 "
+                            f"(Voyage Planning): maintain minimum 30 NM standoff from detected tabular ice "
+                            f"(current clearance: {effective_hazard_dist:.1f} NM); keep continuous forward radar "
+                            f"watch and searchlight readiness in poor visibility."
+                        ),
+                        "is_live": berg_is_live,
+                        "trigger_metrics": {
+                            "iceberg_id": berg["id"],
+                            "lat": b_lat,
+                            "lon": b_lon,
+                            "area_km2": area_val if area_val is not None else "no data",
+                            "distance_to_route_nm": round(min_corr_dist, 1),
+                            "distance_to_vessel_nm": round(min_vessel_dist, 1),
+                            "standoff_threshold_nm": 30.0,
+                            "is_live_track": berg_is_live
+                        }
+                    })
 
         self._cached_alerts = alerts
         self._last_refresh = now
