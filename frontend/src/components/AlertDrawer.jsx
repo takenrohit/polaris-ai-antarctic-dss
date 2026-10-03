@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { 
   X, 
   ShieldAlert,
@@ -61,7 +61,31 @@ export default function AlertDrawer({ isOpen, onClose, alerts }) {
 
       {/* Alert List */}
       <div style={{ padding: '16px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {alerts && alerts.map((alert) => {
+        {(!alerts || alerts.length === 0) ? (
+          <div style={{
+            padding: '36px 16px',
+            textAlign: 'center',
+            color: '#64748b',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+            background: '#f8fafc',
+            borderRadius: '8px',
+            border: '1px dashed #cbd5e1'
+          }}>
+            <ShieldAlert style={{ width: '32px', height: '32px', color: '#10b981' }} />
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>
+                All Clear — No Active Hazard Advisories
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '300px', lineHeight: '1.4' }}>
+                All observed wind speeds, sea ice concentrations, and thermal conditions are currently below warning thresholds.
+              </div>
+            </div>
+          </div>
+        ) : (
+          alerts.map((alert) => {
           const isCritical = alert.severity === 'CRITICAL';
           return (
             <div

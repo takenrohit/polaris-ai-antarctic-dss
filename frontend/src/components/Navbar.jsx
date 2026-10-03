@@ -15,7 +15,7 @@ export default function Navbar({
   onOpenModelValidation, 
   onOpenIcebergs, 
   onOpenAlerts,
-  activeAlertsCount = 3,
+  activeAlertsCount = 0,
   currentRoute = null,
   onExportGeoJSON
 }) {

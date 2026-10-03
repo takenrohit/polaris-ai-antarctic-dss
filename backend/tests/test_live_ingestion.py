@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit and integration tests for live data ingestion and fail-safes:
 - Mocked Open-Meteo live metocean weather responses (asserting is_live: True)
 - Offline fallback path (asserting is_live: False, nulls for unmeasured constants)
@@ -159,7 +159,7 @@ def test_mocked_byu_live_feed_parsing_and_no_invented_constants():
 
 
 def test_rule_triggered_alerts_disclaimer_and_provenance():
-    """Verify alerts are marked as illustrative scenario alerts and accurately reflect is_live status."""
+    """Verify alerts fire only when thresholds are met, display 'no data' instead of defaults, and reflect provenance."""
     # Test offline alert generation
     if hasattr(environmental_data_provider, "_live_weather_cache"):
         environmental_data_provider._live_weather_cache.clear()
@@ -167,7 +167,13 @@ def test_rule_triggered_alerts_disclaimer_and_provenance():
     with mock.patch("urllib.request.urlopen", side_effect=urllib.error.URLError("Offline")):
         alerts = alert_service.list_alerts(force_refresh=True)
 
-    assert len(alerts) >= 3
+    # In offline store, Bharati meets freezing threshold (-12.8°C <= -10°C) and A-23a is tracked
+    # Maitri wind is 18.1 kts (< 22 kts threshold) so it does NOT fire without meeting threshold
+    alert_ids = [a["id"] for a in alerts]
+    assert "ALERT-POLARIS-APPROACH-BHARATI" in alert_ids
+    assert any(aid.startswith("ALERT-POLARIS-BERG-") for aid in alert_ids)
+    assert "ALERT-POLARIS-WIND-MAITRI" not in alert_ids  # Below 22 kts threshold!
+
     for a in alerts:
         # Must clearly state illustrative scenario advisory
         assert a["is_official_bulletin"] is False
@@ -184,6 +190,23 @@ def test_rule_triggered_alerts_disclaimer_and_provenance():
         if "A-23a" in a["id"]:
             # A-23a advisory must clarify it is from historical archive
             assert "not currently listed on the active BYU" in a["description"]
+
+    # Test that wind alert FIRES when threshold is met (e.g. wind >= 22 kts)
+    with mock.patch.object(environmental_data_provider, "get_live_weather") as mock_wx:
+        mock_wx.side_effect = lambda lat, lon, **kw: {
+            "is_live": True,
+            "data_source": "Open-Meteo",
+            "temperature_2m_c": None,  # Test missing temperature -> must show 'no data'
+            "wind_speed_knots": 28.5 if lat < -70.0 else 10.0,
+            "sea_ice_concentration_pct": None,
+        }
+        alerts_high_wind = alert_service.list_alerts(force_refresh=True)
+        m_alert = next((a for a in alerts_high_wind if a["id"] == "ALERT-POLARIS-WIND-MAITRI"), None)
+        assert m_alert is not None
+        assert m_alert["severity"] == "WARNING"
+        assert "Temp no data" in m_alert["description"]
+        assert m_alert["trigger_metrics"]["temperature_c"] == "no data"
+        assert m_alert["trigger_metrics"]["wind_speed_knots"] == 28.5
 
 
 def test_vessel_telemetry_caching_and_nonblocking():

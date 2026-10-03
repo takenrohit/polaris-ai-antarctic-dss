@@ -1,4 +1,4 @@
-﻿"""
+"""
 Navigational Hazard Alert and Rule-Based Advisory Service for Antarctic Waters.
 
 NOTICE: All generated advisories are automated, illustrative scenario alerts computed
@@ -74,47 +74,45 @@ class AlertService:
             m_wind = None
             m_source = "Offline Metocean Store (error fallback)"
 
-        # Threshold evaluation
-        wind_val = m_wind if m_wind is not None else 20.0
-        temp_val = m_temp if m_temp is not None else -15.0
-        if wind_val >= 34.0:
-            severity = "CRITICAL"
-            lead_desc = f"Katabatic gale force conditions detected ({wind_val:.1f} kts)."
-        elif wind_val >= 22.0:
-            severity = "WARNING"
-            lead_desc = f"Elevated wind conditions observed ({wind_val:.1f} kts)."
-        else:
-            severity = "INFO"
-            lead_desc = f"Moderate wind conditions observed ({wind_val:.1f} kts)."
+        # Physical threshold evaluation: fire ONLY if wind speed meets warning/critical thresholds
+        # Do NOT invent default numerical constants (no 20.0 kts or -15.0°C)
+        if m_wind is not None and m_wind >= 22.0:
+            if m_wind >= 34.0:
+                m_severity = "CRITICAL"
+                m_lead = f"Katabatic gale force conditions detected ({m_wind:.1f} kts)."
+            else:
+                m_severity = "WARNING"
+                m_lead = f"Elevated wind conditions observed ({m_wind:.1f} kts)."
 
-        feed_tag = "Live metocean feed" if m_is_live else "Offline metocean reference store"
-        temp_str = f"{temp_val:.1f}°C" if m_temp is not None else "N/A"
+            feed_tag = "Live metocean feed" if m_is_live else "Offline metocean reference store"
+            temp_str = f"{m_temp:.1f}°C" if m_temp is not None else "no data"
+            wind_str = f"{m_wind:.1f} kts" if m_wind is not None else "no data"
 
-        alerts.append({
-            "id": "ALERT-POLARIS-WIND-MAITRI",
-            "timestamp": now_iso,
-            "severity": severity,
-            "source": "POLARIS Rule Engine (illustrative scenario alert, not an official bulletin)",
-            "is_official_bulletin": False,
-            "disclaimer": DISCLAIMER_TEXT,
-            "title": f"WIND ADVISORY: MAITRI / QUEEN MAUD LAND ({severity})",
-            "description": (
-                f"Continental slope off Maitri Station (70°46'S, 11°44'E). {feed_tag}: "
-                f"Temp {temp_str}, Wind {wind_val:.1f} kts (Source: {m_source}). "
-                f"{lead_desc} Rapid sea-ice compaction potential along ice shelf barrier."
-            ),
-            "coordinates": {"lat": maitri_lat, "lon": maitri_lon},
-            "recommended_action": (
-                "Avoid entering dense pack within 40 NM of coast during peak wind windows. "
-                "Maintain continuous radar watch for compression ridging."
-            ),
-            "is_live": m_is_live,
-            "trigger_metrics": {
-                "wind_speed_knots": m_wind,
-                "temperature_c": m_temp,
-                "data_source": m_source,
-            }
-        })
+            alerts.append({
+                "id": "ALERT-POLARIS-WIND-MAITRI",
+                "timestamp": now_iso,
+                "severity": m_severity,
+                "source": "POLARIS Rule Engine (illustrative scenario alert, not an official bulletin)",
+                "is_official_bulletin": False,
+                "disclaimer": DISCLAIMER_TEXT,
+                "title": f"WIND ADVISORY: MAITRI / QUEEN MAUD LAND ({m_severity})",
+                "description": (
+                    f"Continental slope off Maitri Station (70°46'S, 11°44'E). {feed_tag}: "
+                    f"Temp {temp_str}, Wind {wind_str} (Source: {m_source}). "
+                    f"{m_lead} Rapid sea-ice compaction potential along ice shelf barrier."
+                ),
+                "coordinates": {"lat": maitri_lat, "lon": maitri_lon},
+                "recommended_action": (
+                    "Avoid entering dense pack within 40 NM of coast during peak wind windows. "
+                    "Maintain continuous radar watch for compression ridging."
+                ),
+                "is_live": m_is_live,
+                "trigger_metrics": {
+                    "wind_speed_knots": m_wind if m_wind is not None else "no data",
+                    "temperature_c": m_temp if m_temp is not None else "no data",
+                    "data_source": m_source,
+                }
+            })
 
         # ------------------------------------------------------------------- #
         # Rule 2: Fast-Ice & Approach Advisory (Bharati / Prydz Bay Sector)
@@ -127,44 +125,66 @@ class AlertService:
             b_is_live = bool(w_bharati.get("is_live", False))
             b_temp = w_bharati.get("temperature_2m_c")
             b_wind = w_bharati.get("wind_speed_knots")
+            b_sic = w_bharati.get("sea_ice_concentration_pct")
             b_source = w_bharati.get("data_source", "Offline Metocean Store")
         except Exception as e:
             logger.warning("Failed to fetch weather for Bharati alert: %s", e)
             b_is_live = False
             b_temp = None
             b_wind = None
+            b_sic = None
             b_source = "Offline Metocean Store (error fallback)"
 
-        b_wind_val = b_wind if b_wind is not None else 18.0
-        b_temp_val = b_temp if b_temp is not None else -12.0
-        b_feed_tag = "Live metocean feed" if b_is_live else "Offline metocean reference store"
-        b_temp_str = f"{b_temp_val:.1f}°C" if b_temp is not None else "N/A"
+        # Physical threshold evaluation: fire ONLY if sea-ice >= 15% (MIZ threshold),
+        # freezing temperature <= -10°C, or winds >= 22 kts
+        # Do NOT invent default numerical constants (no 18.0 kts or -12.0°C)
+        b_threshold_met = (
+            (b_sic is not None and b_sic >= 15.0) or
+            (b_temp is not None and b_temp <= -10.0) or
+            (b_wind is not None and b_wind >= 22.0)
+        )
 
-        alerts.append({
-            "id": "ALERT-POLARIS-APPROACH-BHARATI",
-            "timestamp": now_iso,
-            "severity": "HIGH",
-            "source": "POLARIS Rule Engine (illustrative scenario alert, not an official bulletin)",
-            "is_official_bulletin": False,
-            "disclaimer": DISCLAIMER_TEXT,
-            "title": "FAST-ICE REGIME & APPROACH ADVISORY: BHARATI SECTOR",
-            "description": (
-                f"Prydz Bay approach (69°24'S, 76°11'E). {b_feed_tag}: "
-                f"Temp {b_temp_str}, Wind {b_wind_val:.1f} kts (Source: {b_source}). "
-                "Fast-ice fracture front and coastal pressure ridging active in approach corridor."
-            ),
-            "coordinates": {"lat": bharati_lat, "lon": bharati_lon},
-            "recommended_action": (
-                "Vessels without Polar Class PC4 or higher require ice reconnaissance "
-                "helicopter scouting before final approach to fast-ice edge."
-            ),
-            "is_live": b_is_live,
-            "trigger_metrics": {
-                "wind_speed_knots": b_wind,
-                "temperature_c": b_temp,
-                "data_source": b_source,
-            }
-        })
+        if b_threshold_met:
+            if ((b_sic is not None and b_sic >= 50.0) or
+                (b_wind is not None and b_wind >= 34.0) or
+                (b_temp is not None and b_temp <= -20.0)):
+                b_severity = "CRITICAL"
+            elif (b_sic is not None and b_sic >= 15.0) or (b_wind is not None and b_wind >= 22.0):
+                b_severity = "HIGH"
+            else:
+                b_severity = "WARNING"
+
+            b_feed_tag = "Live metocean feed" if b_is_live else "Offline metocean reference store"
+            b_temp_str = f"{b_temp:.1f}°C" if b_temp is not None else "no data"
+            b_wind_str = f"{b_wind:.1f} kts" if b_wind is not None else "no data"
+            b_sic_str = f"{b_sic:.1f}%" if b_sic is not None else "no data"
+
+            alerts.append({
+                "id": "ALERT-POLARIS-APPROACH-BHARATI",
+                "timestamp": now_iso,
+                "severity": b_severity,
+                "source": "POLARIS Rule Engine (illustrative scenario alert, not an official bulletin)",
+                "is_official_bulletin": False,
+                "disclaimer": DISCLAIMER_TEXT,
+                "title": f"FAST-ICE REGIME & APPROACH ADVISORY: BHARATI SECTOR ({b_severity})",
+                "description": (
+                    f"Prydz Bay approach (69°24'S, 76°11'E). {b_feed_tag}: "
+                    f"Temp {b_temp_str}, Wind {b_wind_str}, Ice {b_sic_str} (Source: {b_source}). "
+                    "Fast-ice fracture front and coastal pressure ridging active in approach corridor."
+                ),
+                "coordinates": {"lat": bharati_lat, "lon": bharati_lon},
+                "recommended_action": (
+                    "Vessels without Polar Class PC4 or higher require ice reconnaissance "
+                    "helicopter scouting before final approach to fast-ice edge."
+                ),
+                "is_live": b_is_live,
+                "trigger_metrics": {
+                    "wind_speed_knots": b_wind if b_wind is not None else "no data",
+                    "temperature_c": b_temp if b_temp is not None else "no data",
+                    "sea_ice_concentration_pct": b_sic if b_sic is not None else "no data",
+                    "data_source": b_source,
+                }
+            })
 
         # ------------------------------------------------------------------- #
         # Rule 3: Iceberg Tracking & Drift Corridor Advisory
@@ -194,7 +214,7 @@ class AlertService:
             b_lat = float(target_berg["lat"])
             b_lon = float(target_berg["lon"])
             area_val = target_berg.get("area_km2")
-            area_str = f"{area_val:,.0f} km²" if area_val is not None else "Dimension unmeasured"
+            area_str = f"{area_val:,.0f} km²" if area_val is not None else "no data"
 
             alerts.append({
                 "id": f"ALERT-POLARIS-BERG-{target_berg['id']}",
@@ -220,7 +240,7 @@ class AlertService:
                     "iceberg_id": target_berg["id"],
                     "lat": b_lat,
                     "lon": b_lon,
-                    "area_km2": area_val,
+                    "area_km2": area_val if area_val is not None else "no data",
                     "is_live_track": berg_is_live
                 }
             })

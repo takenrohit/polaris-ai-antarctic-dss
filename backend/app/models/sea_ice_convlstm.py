@@ -439,17 +439,16 @@ class SeaIcePredictor:
             pixels_n = len(metrics)
 
         significance_info = {
-            "test_type": "Paired two-tailed Student t-test (Model Error vs Persistence Error)",
+            "test_type": "Paired two-tailed Student t-test on daily lead RMSEs (Model Error vs Persistence Error)",
             "lead_horizon_n": len(metrics),
             "lead_horizon_t_stat": round(float(t_stat), 4),
             "lead_horizon_p_value": round(float(p_val), 5),
-            "spatial_pixels_n": pixels_n,
-            "spatial_t_stat": round(float(spat_t_stat), 4),
-            "spatial_p_value": float(np.format_float_scientific(spat_p_val, precision=4)),
-            "is_statistically_significant_p05": bool(p_val < 0.05 or spat_p_val < 0.05),
+            "is_statistically_significant_p05": bool(p_val < 0.05),
+            "spatial_pixel_test_dropped_from_verdict": True,
+            "spatial_pixel_test_rationale": "Spatial grid-cell pixel tests dropped from significance claims due to spatial autocorrelation / pseudoreplication artificially deflating standard errors.",
             "interpretation": (
-                f"Lead-horizon paired t-test yields t={t_stat:.3f}, p={p_val:.4f}; spatial t={spat_t_stat:.3f}, p={spat_p_val:.2e}. "
-                + ("Statistically significant difference from persistence at alpha=0.05." if (p_val < 0.05 or spat_p_val < 0.05) else "Difference from persistence is not statistically significant at alpha=0.05; performance is statistically comparable.")
+                f"Lead-horizon paired t-test yields t={t_stat:.3f}, p={p_val:.4f}. Spatial pixel test dropped from verdict to avoid pseudoreplication. "
+                + ("Statistically significant difference from persistence at alpha=0.05." if p_val < 0.05 else "Difference from persistence is not statistically significant at alpha=0.05; performance is statistically comparable across the 7-day lead window.")
             )
         }
 
@@ -484,7 +483,7 @@ class SeaIcePredictor:
                 },
                 "model_class": "Hybrid Physics-Guided Forecaster: Spatiotemporal ConvLSTM Residuals + Kinematic Wind Advection + Thermodynamic Melt Trend (Empirical Horizon Blending Schedule alpha(tau))",
                 "scientific_transparency": "Standalone ConvLSTM neural network alone exhibits spatial diffusion (7-day mean RMSE: 0.0462 vs Persistence 0.0353). The operational gain is comparable to persistence overall (+2.27% mean, modestly better at Days 5-7 reaching +4.55% at Day 7) and is achieved by the physics-guided hybrid blending framework. The alpha schedule is calibrated on an early January time-ordered split (Days 0-13, Jan 1-14) and evaluated on held-out late January (Days 14-20, Jan 15-21).",
-                "verdict": "Hybrid forecaster is comparable to persistence, modestly better at days 5-7 (+4.55% RMSE gain at Day 7) on held-out NSIDC/ERA5 observations."
+                "verdict": "Hybrid forecaster is comparable to persistence, modestly better at days 5-7 (+4.55% RMSE gain at Day 7) on held-out NSIDC/ERA5 observations. Pixel-level tests dropped from verdict to eliminate pseudoreplication."
             }
         }
 
